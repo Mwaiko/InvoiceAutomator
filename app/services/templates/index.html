@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>KRA eTIMS — GRN Submission</title>
+<style>
+  /* ── Reset & tokens ─────────────────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #0d1117;
+    --surface:   #161b22;
+    --surface2:  #1c2330;
+    --border:    #30363d;
+    --green:     #1a7f3c;
+    --green-lit: #2ea84f;
+    --green-dim: #0d4a22;
+    --amber:     #d29922;
+    --red:       #da3633;
+    --text:      #e6edf3;
+    --muted:     #8b949e;
+    --mono:      'Cascadia Code', 'Fira Code', 'Consolas', 'Menlo', 'Courier New', monospace;
+    --sans:      'Segoe UI', 'Helvetica Neue', Arial, 'Liberation Sans', sans-serif;
+    --radius:    6px;
+    --transition: 200ms ease;
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  /* ── Layout ─────────────────────────────────────────────────────────────── */
+  .shell {
+    min-height: 100vh;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+  }
+
+  /* ── Header ─────────────────────────────────────────────────────────────── */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    height: 56px;
+    background: var(--surface);
+  }
+
+  .logo-badge {
+    background: var(--green);
+    color: #fff;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    padding: 3px 8px;
+    border-radius: 3px;
+  }
+
+  header h1 {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  header .pin-badge {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 3px 10px;
+    border-radius: 20px;
+  }
+
+  /* ── Steps bar ──────────────────────────────────────────────────────────── */
+  .steps {
+    display: flex;
+    gap: 0;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    overflow-x: auto;
+  }
+
+  .step {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .75rem 1.25rem;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--muted);
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+    transition: color var(--transition);
+    cursor: default;
+  }
+
+  .step.active {
+    color: var(--green-lit);
+    border-bottom-color: var(--green-lit);
+  }
+
+  .step.done {
+    color: var(--text);
+  }
+
+  .step-num {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--border);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-family: var(--mono);
+  }
+
+  .step.active .step-num { background: var(--green); color: #fff; }
+  .step.done  .step-num  { background: var(--green-dim); color: var(--green-lit); }
+
+  /* ── Main content ───────────────────────────────────────────────────────── */
+  main {
+    padding: 2rem;
+    max-width: 960px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  /* ── Cards ───────────────────────────────────────────────────────────────── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 1.25rem;
+  }
+
+  .card-header {
+    padding: .75rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    background: var(--surface2);
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--muted);
+  }
+
+  .card-body { padding: 1.25rem; }
+
+  /* ── Upload zone ─────────────────────────────────────────────────────────── */
+  #drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 3.5rem 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color var(--transition), background var(--transition);
+    position: relative;
+  }
+
+  #drop-zone:hover, #drop-zone.dragover {
+    border-color: var(--green-lit);
+    background: rgba(26,127,60,.06);
+  }
+
+  #drop-zone input[type="file"] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+
+  .upload-icon {
+    font-size: 2.5rem;
+    margin-bottom: .75rem;
+    display: block;
+    filter: grayscale(1) opacity(.5);
+  }
+
+  #drop-zone h2 { font-size: 16px; font-weight: 500; margin-bottom: .35rem; }
+  #drop-zone p  { color: var(--muted); font-size: 12px; }
+
+  #selected-name {
+    display: none;
+    margin-top: 1rem;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--green-lit);
+    background: rgba(26,127,60,.1);
+    border: 1px solid var(--green-dim);
+    border-radius: var(--radius);
+    padding: .4rem .75rem;
+    display: none;
+  }
+
+  /* ── Buttons ─────────────────────────────────────────────────────────────── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    padding: .55rem 1.2rem;
+    border-radius: var(--radius);
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: background var(--transition), opacity var(--transition);
+  }
+
+  .btn-primary {
+    background: var(--green);
+    color: #fff;
+    border-color: var(--green);
+  }
+
+  .btn-primary:hover { background: var(--green-lit); }
+
+  .btn-outline {
+    background: transparent;
+    color: var(--text);
+    border-color: var(--border);
+  }
+
+  .btn-outline:hover { background: var(--surface2); }
+
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+
+  /* ── Form controls ───────────────────────────────────────────────────────── */
+  .form-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .form-group { display: flex; flex-direction: column; gap: .35rem; }
+
+  label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--muted);
+  }
+
+  label .req { color: var(--amber); }
+
+  input[type="text"], input[type="password"] {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: .5rem .75rem;
+    transition: border-color var(--transition);
+    width: 100%;
+  }
+
+  input[type="text"]:focus, input[type="password"]:focus {
+    outline: none;
+    border-color: var(--green-lit);
+  }
+
+  input.required-field {
+    border-color: var(--amber);
+    background: rgba(210,153,34,.05);
+  }
+
+  /* ── Items table ─────────────────────────────────────────────────────────── */
+  .items-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+
+  .items-table th {
+    text-align: left;
+    padding: .5rem .75rem;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .items-table td {
+    padding: .55rem .75rem;
+    border-bottom: 1px solid rgba(48,54,61,.5);
+    vertical-align: middle;
+  }
+
+  .items-table tr:last-child td { border-bottom: none; }
+
+  .items-table tr:hover td { background: rgba(255,255,255,.02); }
+
+  .mono { font-family: var(--mono); }
+  .right { text-align: right; }
+  .muted { color: var(--muted); }
+  .tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+
+  /* ── Info grid ───────────────────────────────────────────────────────────── */
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: .75rem;
+  }
+
+  .info-cell { display: flex; flex-direction: column; gap: .2rem; }
+  .info-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--muted);
+    font-weight: 600;
+  }
+
+  .info-value {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text);
+  }
+
+  .info-value.empty { color: var(--muted); font-style: italic; font-family: var(--sans); font-size: 12px; }
+
+  /* ── Totals row ─────────────────────────────────────────────────────────── */
+  .totals-bar {
+    display: flex;
+    gap: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-top: 1rem;
+  }
+
+  .total-cell {
+    flex: 1;
+    padding: .75rem 1rem;
+    text-align: center;
+    border-right: 1px solid var(--border);
+    background: var(--surface2);
+  }
+
+  .total-cell:last-child { border-right: none; }
+  .total-cell .t-label { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: .2rem; }
+  .total-cell .t-value { font-family: var(--mono); font-size: 16px; font-weight: 600; }
+  .total-cell.grand .t-value { color: var(--green-lit); }
+
+  /* ── Alert / Toast ───────────────────────────────────────────────────────── */
+  .alert {
+    padding: .75rem 1rem;
+    border-radius: var(--radius);
+    font-size: 13px;
+    display: none;
+    margin-bottom: 1rem;
+    border: 1px solid;
+  }
+
+  .alert-error   { background: rgba(218,54,51,.1); border-color: var(--red);   color: #ff7b7a; }
+  .alert-success { background: rgba(26,127,60,.1); border-color: var(--green); color: var(--green-lit); }
+  .alert-warn    { background: rgba(210,153,34,.1); border-color: var(--amber); color: var(--amber); }
+
+  /* ── Spinner ─────────────────────────────────────────────────────────────── */
+  .spinner {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,.2);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Section transitions ─────────────────────────────────────────────────── */
+  .section {
+    animation: fadeUp .3s ease both;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── Result screen ───────────────────────────────────────────────────────── */
+  .result-icon {
+    font-size: 3rem;
+    text-align: center;
+    margin-bottom: 1rem;
+    display: block;
+  }
+
+  .result-msg { text-align: center; margin-bottom: 1.5rem; }
+  .result-msg h2 { font-size: 20px; font-weight: 500; margin-bottom: .3rem; }
+  .result-msg p  { color: var(--muted); font-size: 13px; }
+
+  .remark-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: .75rem 1rem;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    word-break: break-all;
+    margin-bottom: 1rem;
+  }
+
+  .json-block {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    white-space: pre;
+    overflow-x: auto;
+    max-height: 240px;
+  }
+
+  /* ── Divider ─────────────────────────────────────────────────────────────── */
+  hr { border: none; border-top: 1px solid var(--border); margin: 1.25rem 0; }
+
+  /* ── Footer ─────────────────────────────────────────────────────────────── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: .75rem 2rem;
+    font-size: 11px;
+    color: var(--muted);
+    text-align: center;
+    font-family: var(--mono);
+  }
+
+  /* ── Credentials section ─────────────────────────────────────────────────── */
+  details summary {
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--muted);
+    user-select: none;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    padding: .5rem 0;
+  }
+
+  details summary::before { content: "▶"; font-size: 9px; transition: transform var(--transition); }
+  details[open] summary::before { transform: rotate(90deg); }
+
+  .cred-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: .75rem;
+    padding-top: .75rem;
+  }
+
+  @media (max-width: 640px) {
+    .cred-grid { grid-template-columns: 1fr; }
+    .form-row  { grid-template-columns: 1fr; }
+    .totals-bar { flex-direction: column; }
+    .total-cell { border-right: none; border-bottom: 1px solid var(--border); }
+    .total-cell:last-child { border-bottom: none; }
+    main { padding: 1rem; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- Header -->
+  <header>
+    <span class="logo-badge">KRA</span>
+    <h1>eTIMS GRN Submission</h1>
+    <span class="pin-badge" id="pin-display">PIN: P051621945B</span>
+  </header>
+
+  <!-- Steps indicator -->
+  <div class="steps">
+    <div class="step active" id="step-1"><span class="step-num">1</span> Upload GRN</div>
+    <div class="step"        id="step-2"><span class="step-num">2</span> Review &amp; Fill</div>
+    <div class="step"        id="step-3"><span class="step-num">3</span> Submit to KRA</div>
+  </div>
+
+  <main>
+
+    <!-- ── STEP 1: Upload ────────────────────────────────────────────────── -->
+    <div id="view-upload" class="section">
+      <div class="card">
+        <div class="card-header">📂 Select GRN Document</div>
+        <div class="card-body">
+          <div id="drop-zone">
+            <input type="file" id="file-input" accept=".pdf,.jpg,.jpeg,.png,.bmp,.tiff,.tif,.webp" />
+            <span class="upload-icon">📄</span>
+            <h2>Drop your GRN here or click to browse</h2>
+            <p>Supports PDF, JPG, PNG, TIFF — the file will be parsed automatically</p>
+          </div>
+
+          <div id="selected-name">—</div>
+
+          <div id="upload-error" class="alert alert-error" style="margin-top:1rem;"></div>
+
+          <div style="margin-top:1.25rem; display:flex; gap:.75rem; align-items:center;">
+            <button class="btn btn-primary" id="btn-parse" disabled>
+              <span class="spinner" id="parse-spinner" style="display:none;"></span>
+              Parse GRN
+            </button>
+            <span id="parse-status" style="font-size:12px; color:var(--muted);"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── STEP 2: Review & Fill ─────────────────────────────────────────── -->
+    <div id="view-review" class="section" style="display:none;">
+
+      <div id="review-error" class="alert alert-error"></div>
+
+      <!-- Parsed GRN info -->
+      <div class="card">
+        <div class="card-header">📋 Parsed GRN — <span id="review-filename" style="font-family:var(--mono); font-weight:400;"></span></div>
+        <div class="card-body">
+          <div class="info-grid" id="info-grid"></div>
+        </div>
+      </div>
+
+      <!-- Line items -->
+      <div class="card">
+        <div class="card-header">🧾 Line Items (<span id="item-count">0</span>)</div>
+        <div class="card-body" style="padding:0; overflow-x:auto;">
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Item Code</th>
+                <th>Description</th>
+                <th>UOM</th>
+                <th class="right">Qty</th>
+                <th class="right">Unit Price</th>
+                <th class="right">Net Amount</th>
+              </tr>
+            </thead>
+            <tbody id="items-body"></tbody>
+          </table>
+        </div>
+
+        <div class="card-body" style="padding-top:0;">
+          <div class="totals-bar">
+            <div class="total-cell">
+              <div class="t-label">Supply Amount</div>
+              <div class="t-value" id="tot-supply">—</div>
+            </div>
+            <div class="total-cell">
+              <div class="t-label">VAT</div>
+              <div class="t-value" id="tot-vat">—</div>
+            </div>
+            <div class="total-cell grand">
+              <div class="t-label">Order Total</div>
+              <div class="t-value" id="tot-grand">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Non-fiscal fields -->
+      <div class="card">
+        <div class="card-header">✏️ Non-Fiscal Information</div>
+        <div class="card-body">
+          <p style="font-size:12px; color:var(--muted); margin-bottom:1rem;">
+            These fields appear on the eTIMS receipt remark. Invoice No and Store No are usually not in the GRN — fill them in below.
+          </p>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Order No (LPO)</label>
+              <input type="text" id="f-order-no" placeholder="e.g. P040603675" />
+            </div>
+            <div class="form-group">
+              <label>Delivery Note / Inv No</label>
+              <input type="text" id="f-delivery-no" placeholder="e.g. 2076QOS" />
+            </div>
+            <div class="form-group">
+              <label>GRN No</label>
+              <input type="text" id="f-grn-no" placeholder="e.g. NVS-008740467" />
+            </div>
+            <div class="form-group">
+              <label>Invoice No <span class="req">*</span></label>
+              <input type="text" id="f-invoice-no" class="required-field" placeholder="Supplier invoice number" />
+            </div>
+            <div class="form-group">
+              <label>Store No <span class="req">*</span></label>
+              <input type="text" id="f-store-no" class="required-field" placeholder="e.g. 110" />
+            </div>
+          </div>
+
+          <hr />
+
+          <!-- Credentials (collapsible) -->
+          <details>
+            <summary>🔐 KRA Credentials</summary>
+            <div class="cred-grid">
+              <div class="form-group">
+                <label>PIN</label>
+                <input type="text" id="f-pin" value="P051621945B" />
+              </div>
+              <div class="form-group">
+                <label>Username</label>
+                <input type="text" id="f-username" value="P051621945B" />
+              </div>
+              <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="f-password" value="Nairobi@2025" />
+              </div>
+            </div>
+          </details>
+
+          <div style="margin-top:1.25rem; display:flex; gap:.75rem; align-items:center; flex-wrap:wrap;">
+            <button class="btn btn-primary" id="btn-submit">
+              <span class="spinner" id="submit-spinner" style="display:none;"></span>
+              Submit to KRA eTIMS
+            </button>
+            <button class="btn btn-outline" id="btn-back">← Upload another</button>
+            <span id="submit-status" style="font-size:12px; color:var(--muted);"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── STEP 3: Result ─────────────────────────────────────────────────── -->
+    <div id="view-result" class="section" style="display:none;">
+      <div class="card">
+        <div class="card-body" style="text-align:center;">
+          <span class="result-icon" id="result-icon">✅</span>
+          <div class="result-msg">
+            <h2 id="result-heading">Receipt Submitted</h2>
+            <p  id="result-subtext">KRA eTIMS accepted the receipt.</p>
+          </div>
+
+          <div style="text-align:left;">
+            <div style="font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:.4rem; font-weight:600;">Remark Sent</div>
+            <div class="remark-box" id="result-remark"></div>
+
+            <div style="font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:.4rem; font-weight:600;">Totals</div>
+            <div class="totals-bar" id="result-totals-bar" style="margin-bottom:1rem;"></div>
+
+            <div style="font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:.4rem; font-weight:600;">Server Response</div>
+            <div class="json-block" id="result-json"></div>
+          </div>
+
+          <div style="margin-top:1.5rem; display:flex; gap:.75rem; justify-content:center; flex-wrap:wrap;">
+            <button class="btn btn-primary"  id="btn-new">Submit Another GRN</button>
+            <button class="btn btn-outline"  id="btn-retry" style="display:none;">Retry</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <footer>KRA eTIMS — GRN Automation Tool · Quality Outsource Solution</footer>
+</div>
+
+<script>
+/* ── State ─────────────────────────────────────────────────────────────────── */
+let parsedGrn = null;
+
+/* ── DOM refs ──────────────────────────────────────────────────────────────── */
+const $ = id => document.getElementById(id);
+
+/* ── Step management ────────────────────────────────────────────────────────── */
+function goStep(n) {
+  ['view-upload','view-review','view-result'].forEach((id, i) => {
+    $(id).style.display = (i === n - 1) ? '' : 'none';
+    $(id).style.animation = 'none';
+    if (i === n - 1) { void $(id).offsetHeight; $(id).style.animation = ''; }
+  });
+
+  for (let i = 1; i <= 3; i++) {
+    const s = $(`step-${i}`);
+    s.className = 'step' + (i === n ? ' active' : (i < n ? ' done' : ''));
+  }
+}
+
+/* ── File picker / drop zone ────────────────────────────────────────────────── */
+const dropZone  = $('drop-zone');
+const fileInput = $('file-input');
+const selName   = $('selected-name');
+const btnParse  = $('btn-parse');
+
+dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', ()  => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  if (e.dataTransfer.files[0]) { fileInput.files = e.dataTransfer.files; onFileChosen(); }
+});
+
+fileInput.addEventListener('change', onFileChosen);
+
+function onFileChosen() {
+  const f = fileInput.files[0];
+  if (!f) return;
+  selName.textContent = `📎  ${f.name}  (${(f.size / 1024).toFixed(1)} KB)`;
+  selName.style.display = 'block';
+  btnParse.disabled = false;
+  $('upload-error').style.display = 'none';
+}
+
+/* ── Parse ───────────────────────────────────────────────────────────────────── */
+btnParse.addEventListener('click', async () => {
+  const f = fileInput.files[0];
+  if (!f) return;
+
+  btnParse.disabled = true;
+  $('parse-spinner').style.display = 'inline-block';
+  $('parse-status').textContent = 'Parsing…';
+  $('upload-error').style.display = 'none';
+
+  const fd = new FormData();
+  fd.append('grn_file', f);
+
+  try {
+    const res  = await fetch('/parse', { method: 'POST', body: fd });
+    const data = await res.json();
+
+    if (!res.ok || data.error) {
+      showAlert('upload-error', data.error || 'Parsing failed.');
+      return;
+    }
+
+    parsedGrn = data.grn;
+    $('review-filename').textContent = f.name;
+    renderReview(parsedGrn);
+    goStep(2);
+
+  } catch (e) {
+    showAlert('upload-error', 'Network error: ' + e.message);
+  } finally {
+    btnParse.disabled = false;
+    $('parse-spinner').style.display = 'none';
+    $('parse-status').textContent = '';
+  }
+});
+
+/* ── Render review panel ─────────────────────────────────────────────────────── */
+function renderReview(grn) {
+  // Header info
+  const store    = grn.store    || {};
+  const supplier = grn.supplier || {};
+  const infoGrid = $('info-grid');
+  const fields   = [
+    ['LPO Number',     grn.lpo_number],
+    ['Delivery Inv No',grn.delivery_invoice_no],
+    ['GRN / Voucher',  grn.receipt_voucher_no],
+    ['Receipt Date',   grn.receipt_date],
+    ['Store / Branch', store.store_name],
+    ['Company',        store.company_name],
+    ['Location',       store.location],
+    ['Supplier',       supplier.company_name],
+    ['Supplier Email', supplier.email],
+  ];
+
+  infoGrid.innerHTML = fields.map(([label, value]) => `
+    <div class="info-cell">
+      <span class="info-label">${label}</span>
+      <span class="info-value ${!value ? 'empty' : ''}">${value || '—'}</span>
+    </div>
+  `).join('');
+
+  // Items table
+  const items = grn.items || [];
+  $('item-count').textContent = items.length;
+
+  $('items-body').innerHTML = items.map((it, idx) => `
+    <tr>
+      <td class="muted mono">${idx + 1}</td>
+      <td class="mono">${it.item_code || '—'}</td>
+      <td>${it.description || '—'}</td>
+      <td><span class="tag">${it.uom || '—'}</span></td>
+      <td class="right mono">${fmtNum(it.qty_received)}</td>
+      <td class="right mono">${fmtMoney(it.unit_price)}</td>
+      <td class="right mono">${fmtMoney(it.net_amount)}</td>
+    </tr>
+  `).join('') || `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:2rem;">No items parsed.</td></tr>`;
+
+  // Totals
+  $('tot-supply').textContent = fmtMoney(grn.sub_total);
+  $('tot-vat').textContent    = fmtMoney(grn.vat);
+  $('tot-grand').textContent  = fmtMoney(grn.order_total);
+
+  // Pre-fill editable fields
+  $('f-order-no').value    = grn.lpo_number            || '';
+  $('f-delivery-no').value = grn.delivery_invoice_no   || '';
+  $('f-grn-no').value      = grn.receipt_voucher_no    || '';
+  $('f-invoice-no').value  = grn.invoice_no            || '';
+  $('f-store-no').value    = grn.store_no              || '';
+}
+
+/* ── Back button ─────────────────────────────────────────────────────────────── */
+$('btn-back').addEventListener('click', () => {
+  fileInput.value = '';
+  selName.style.display = 'none';
+  btnParse.disabled = true;
+  parsedGrn = null;
+  goStep(1);
+});
+
+/* ── Submit ─────────────────────────────────────────────────────────────────── */
+$('btn-submit').addEventListener('click', async () => {
+  const invoiceNo = $('f-invoice-no').value.trim();
+  const storeNo   = $('f-store-no').value.trim();
+
+  $('review-error').style.display = 'none';
+
+  if (!invoiceNo || !storeNo) {
+    showAlert('review-error', '⚠️  Invoice No and Store No are required before submitting.');
+    return;
+  }
+
+  $('btn-submit').disabled = true;
+  $('submit-spinner').style.display = 'inline-block';
+  $('submit-status').textContent = 'Logging in & submitting to KRA…';
+
+  const fd = new FormData();
+  fd.append('invoice_no', invoiceNo);
+  fd.append('store_no',   storeNo);
+  fd.append('kra_pin',      $('f-pin').value.trim());
+  fd.append('kra_username', $('f-username').value.trim());
+  fd.append('kra_password', $('f-password').value.trim());
+
+  try {
+    const res  = await fetch('/submit', { method: 'POST', body: fd });
+    const data = await res.json();
+
+    if (!res.ok || data.error) {
+      showAlert('review-error', '❌  ' + (data.error || 'Submission failed.'));
+      return;
+    }
+
+    showResult(data);
+    goStep(3);
+
+  } catch (e) {
+    showAlert('review-error', 'Network error: ' + e.message);
+  } finally {
+    $('btn-submit').disabled = false;
+    $('submit-spinner').style.display = 'none';
+    $('submit-status').textContent = '';
+  }
+});
+
+/* ── Show result ─────────────────────────────────────────────────────────────── */
+function showResult(data) {
+  const ok = data.ok;
+
+  $('result-icon').textContent    = ok ? '✅' : '❌';
+  $('result-heading').textContent = ok ? 'Receipt Submitted Successfully' : 'Submission Failed';
+  $('result-subtext').textContent = ok
+    ? 'KRA eTIMS accepted the receipt. You may now submit another GRN.'
+    : 'KRA eTIMS returned an error. See the server response below.';
+  $('result-remark').textContent  = data.remark || '—';
+  $('result-json').textContent    = JSON.stringify(data.results, null, 2);
+
+  $('btn-retry').style.display = ok ? 'none' : '';
+
+  const t = data.totals || {};
+  $('result-totals-bar').innerHTML = `
+    <div class="total-cell">
+      <div class="t-label">Supply</div>
+      <div class="t-value">${fmtMoney(t.supply)}</div>
+    </div>
+    <div class="total-cell">
+      <div class="t-label">Tax</div>
+      <div class="t-value">${fmtMoney(t.tax)}</div>
+    </div>
+    <div class="total-cell grand">
+      <div class="t-label">Grand Total</div>
+      <div class="t-value">${fmtMoney(t.grand)}</div>
+    </div>
+  `;
+}
+
+/* ── New / Retry buttons ─────────────────────────────────────────────────────── */
+$('btn-new').addEventListener('click', () => {
+  fileInput.value = '';
+  selName.style.display = 'none';
+  btnParse.disabled = true;
+  parsedGrn = null;
+  goStep(1);
+});
+
+$('btn-retry').addEventListener('click', () => goStep(2));
+
+/* ── Helpers ─────────────────────────────────────────────────────────────────── */
+function showAlert(id, msg) {
+  const el = $(id);
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function fmtMoney(v) {
+  if (v == null || v === '') return '—';
+  return 'KES ' + Number(v).toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function fmtNum(v) {
+  if (v == null) return '—';
+  return Number(v).toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+</script>
+</body>
+</html>

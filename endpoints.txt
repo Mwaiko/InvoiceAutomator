@@ -1,0 +1,159 @@
+GRN → eTIMS API
+
+ 1.0.0 
+
+OAS 3.1
+
+/openapi.json
+
+Goods Received Note processing and KRA eTIMS automation
+auth
+POST
+/api/v1/auth/login
+Login
+POST
+/api/v1/auth/refresh
+Refresh
+GET
+/api/v1/auth/me
+Me
+grns
+POST
+/api/v1/grns/upload
+Upload Grn
+GET
+/api/v1/grns
+List Grns
+GET
+/api/v1/grns/{grn_id}
+Get Grn
+POST
+/api/v1/grns/{grn_id}/confirm
+Confirm Grn
+POST
+/api/v1/grns/{grn_id}/reject
+Reject Grn
+etims
+GET
+/api/v1/etims-invoices
+List Invoices
+GET
+/api/v1/etims-invoices/{invoice_id}
+Get Invoice
+POST
+/api/v1/etims-invoices/{invoice_id}/retry
+Retry Invoice
+orders
+POST
+/api/v1/orders
+Create Order
+GET
+/api/v1/orders
+List Orders
+GET
+/api/v1/orders/{order_id}
+Get Order
+PATCH
+/api/v1/orders/{order_id}
+Update Order
+DELETE
+/api/v1/orders/{order_id}
+Cancel Order
+PATCH
+/api/v1/orders/{order_id}/status
+Update Order Status
+GET
+/api/v1/orders/{order_id}/grns
+Get Order Grns
+GET
+/api/v1/orders/{order_id}/payments
+Get Order Payments
+payments
+POST
+/api/v1/payments
+Create Payment
+GET
+/api/v1/payments
+List Payments
+GET
+/api/v1/payments/{payment_id}
+Get Payment
+POST
+/api/v1/payments/{payment_id}/confirm
+Confirm Payment
+POST
+/api/v1/payments/{payment_id}/reconcile
+Reconcile Payment
+POST
+/api/v1/payments/{payment_id}/void
+Void Payment
+businesses
+POST
+/api/v1/businesses
+Create Business
+GET
+/api/v1/businesses
+List Businesses
+GET
+/api/v1/businesses/{business_id}
+Get Business
+PATCH
+/api/v1/businesses/{business_id}
+Update Business
+DELETE
+/api/v1/businesses/{business_id}
+Deactivate Business
+POST
+/api/v1/businesses/{business_id}/branches
+Add Branch
+GET
+/api/v1/businesses/{business_id}/branches
+List Branches
+GET
+/api/v1/businesses/{business_id}/branches/{branch_id}
+Get Branch
+PATCH
+/api/v1/businesses/{business_id}/branches/{branch_id}
+Update Branch
+DELETE
+/api/v1/businesses/{business_id}/branches/{branch_id}
+Deactivate Branch
+system
+GET
+/health
+Health
+Schemas
+object
+object
+object
+object
+object
+object
+object
+object
+object
+string
+object
+object
+object
+object
+object
+string
+object
+object
+object
+object
+object
+string
+object
+object
+object
+object
+string
+object
+string
+object
+object
+object
+object
+object

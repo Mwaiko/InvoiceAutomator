@@ -1,0 +1,2046 @@
+<html lang="en" dir="ltr" data-darkreader-mode="dynamic" data-darkreader-scheme="dark" data-darkreader-proxy-injected="true"><head><style>:root{--litepicker-container-months-color-bg: #fff;--litepicker-container-months-box-shadow-color: #ddd;--litepicker-footer-color-bg: #fafafa;--litepicker-footer-box-shadow-color: #ddd;--litepicker-tooltip-color-bg: #fff;--litepicker-month-header-color: #333;--litepicker-button-prev-month-color: #9e9e9e;--litepicker-button-next-month-color: #9e9e9e;--litepicker-button-prev-month-color-hover: #2196f3;--litepicker-button-next-month-color-hover: #2196f3;--litepicker-month-width: calc(var(--litepicker-day-width) * 7);--litepicker-month-weekday-color: #9e9e9e;--litepicker-month-week-number-color: #9e9e9e;--litepicker-day-width: 38px;--litepicker-day-color: #333;--litepicker-day-color-hover: #2196f3;--litepicker-is-today-color: #f44336;--litepicker-is-in-range-color: #bbdefb;--litepicker-is-locked-color: #9e9e9e;--litepicker-is-start-color: #fff;--litepicker-is-start-color-bg: #2196f3;--litepicker-is-end-color: #fff;--litepicker-is-end-color-bg: #2196f3;--litepicker-button-cancel-color: #fff;--litepicker-button-cancel-color-bg: #9e9e9e;--litepicker-button-apply-color: #fff;--litepicker-button-apply-color-bg: #2196f3;--litepicker-button-reset-color: #909090;--litepicker-button-reset-color-hover: #2196f3;--litepicker-highlighted-day-color: #333;--litepicker-highlighted-day-color-bg: #ffeb3b}.show-week-numbers{--litepicker-month-width: calc(var(--litepicker-day-width) * 8)}.litepicker{font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;font-size:0.8em;display:none}.litepicker button{border:none;background:none}.litepicker .container__main{display:-webkit-box;display:-ms-flexbox;display:flex}.litepicker .container__months{display:-webkit-box;display:-ms-flexbox;display:flex;-ms-flex-wrap:wrap;flex-wrap:wrap;background-color:var(--litepicker-container-months-color-bg);border-radius:5px;-webkit-box-shadow:0 0 5px var(--litepicker-container-months-box-shadow-color);box-shadow:0 0 5px var(--litepicker-container-months-box-shadow-color);width:calc(var(--litepicker-month-width) + 10px);-webkit-box-sizing:content-box;box-sizing:content-box}.litepicker .container__months.columns-2{width:calc((var(--litepicker-month-width) * 2) + 20px)}.litepicker .container__months.columns-3{width:calc((var(--litepicker-month-width) * 3) + 30px)}.litepicker .container__months.columns-4{width:calc((var(--litepicker-month-width) * 4) + 40px)}.litepicker .container__months.split-view .month-item-header .button-previous-month,.litepicker .container__months.split-view .month-item-header .button-next-month{visibility:visible}.litepicker .container__months .month-item{padding:5px;width:var(--litepicker-month-width);-webkit-box-sizing:content-box;box-sizing:content-box}.litepicker .container__months .month-item-header{display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-pack:justify;-ms-flex-pack:justify;justify-content:space-between;font-weight:500;padding:10px 5px;text-align:center;-webkit-box-align:center;-ms-flex-align:center;align-items:center;color:var(--litepicker-month-header-color)}.litepicker .container__months .month-item-header div{-webkit-box-flex:1;-ms-flex:1;flex:1}.litepicker .container__months .month-item-header div>.month-item-name{margin-right:5px}.litepicker .container__months .month-item-header div>.month-item-year{padding:0}.litepicker .container__months .month-item-header .reset-button{color:var(--litepicker-button-reset-color)}.litepicker .container__months .month-item-header .reset-button>svg{fill:var(--litepicker-button-reset-color)}.litepicker .container__months .month-item-header .reset-button *{pointer-events:none}.litepicker .container__months .month-item-header .reset-button:hover{color:var(--litepicker-button-reset-color-hover)}.litepicker .container__months .month-item-header .reset-button:hover>svg{fill:var(--litepicker-button-reset-color-hover)}.litepicker .container__months .month-item-header .button-previous-month,.litepicker .container__months .month-item-header .button-next-month{visibility:hidden;text-decoration:none;padding:3px 5px;border-radius:3px;-webkit-transition:color 0.3s, border 0.3s;transition:color 0.3s, border 0.3s;cursor:default}.litepicker .container__months .month-item-header .button-previous-month *,.litepicker .container__months .month-item-header .button-next-month *{pointer-events:none}.litepicker .container__months .month-item-header .button-previous-month{color:var(--litepicker-button-prev-month-color)}.litepicker .container__months .month-item-header .button-previous-month>svg,.litepicker .container__months .month-item-header .button-previous-month>img{fill:var(--litepicker-button-prev-month-color)}.litepicker .container__months .month-item-header .button-previous-month:hover{color:var(--litepicker-button-prev-month-color-hover)}.litepicker .container__months .month-item-header .button-previous-month:hover>svg{fill:var(--litepicker-button-prev-month-color-hover)}.litepicker .container__months .month-item-header .button-next-month{color:var(--litepicker-button-next-month-color)}.litepicker .container__months .month-item-header .button-next-month>svg,.litepicker .container__months .month-item-header .button-next-month>img{fill:var(--litepicker-button-next-month-color)}.litepicker .container__months .month-item-header .button-next-month:hover{color:var(--litepicker-button-next-month-color-hover)}.litepicker .container__months .month-item-header .button-next-month:hover>svg{fill:var(--litepicker-button-next-month-color-hover)}.litepicker .container__months .month-item-weekdays-row{display:-webkit-box;display:-ms-flexbox;display:flex;justify-self:center;-webkit-box-pack:start;-ms-flex-pack:start;justify-content:flex-start;color:var(--litepicker-month-weekday-color)}.litepicker .container__months .month-item-weekdays-row>div{padding:5px 0;font-size:85%;-webkit-box-flex:1;-ms-flex:1;flex:1;width:var(--litepicker-day-width);text-align:center}.litepicker .container__months .month-item:first-child .button-previous-month{visibility:visible}.litepicker .container__months .month-item:last-child .button-next-month{visibility:visible}.litepicker .container__months .month-item.no-previous-month .button-previous-month{visibility:hidden}.litepicker .container__months .month-item.no-next-month .button-next-month{visibility:hidden}.litepicker .container__days{display:-webkit-box;display:-ms-flexbox;display:flex;-ms-flex-wrap:wrap;flex-wrap:wrap;justify-self:center;-webkit-box-pack:start;-ms-flex-pack:start;justify-content:flex-start;text-align:center;-webkit-box-sizing:content-box;box-sizing:content-box}.litepicker .container__days>div,.litepicker .container__days>a{padding:5px 0;width:var(--litepicker-day-width)}.litepicker .container__days .day-item{color:var(--litepicker-day-color);text-align:center;text-decoration:none;border-radius:3px;-webkit-transition:color 0.3s, border 0.3s;transition:color 0.3s, border 0.3s;cursor:default}.litepicker .container__days .day-item:hover{color:var(--litepicker-day-color-hover);-webkit-box-shadow:inset 0 0 0 1px var(--litepicker-day-color-hover);box-shadow:inset 0 0 0 1px var(--litepicker-day-color-hover)}.litepicker .container__days .day-item.is-today{color:var(--litepicker-is-today-color)}.litepicker .container__days .day-item.is-locked{color:var(--litepicker-is-locked-color)}.litepicker .container__days .day-item.is-locked:hover{color:var(--litepicker-is-locked-color);-webkit-box-shadow:none;box-shadow:none;cursor:default}.litepicker .container__days .day-item.is-in-range{background-color:var(--litepicker-is-in-range-color);border-radius:0}.litepicker .container__days .day-item.is-start-date{color:var(--litepicker-is-start-color);background-color:var(--litepicker-is-start-color-bg);border-top-left-radius:5px;border-bottom-left-radius:5px;border-top-right-radius:0;border-bottom-right-radius:0}.litepicker .container__days .day-item.is-start-date.is-flipped{border-top-left-radius:0;border-bottom-left-radius:0;border-top-right-radius:5px;border-bottom-right-radius:5px}.litepicker .container__days .day-item.is-end-date{color:var(--litepicker-is-end-color);background-color:var(--litepicker-is-end-color-bg);border-top-left-radius:0;border-bottom-left-radius:0;border-top-right-radius:5px;border-bottom-right-radius:5px}.litepicker .container__days .day-item.is-end-date.is-flipped{border-top-left-radius:5px;border-bottom-left-radius:5px;border-top-right-radius:0;border-bottom-right-radius:0}.litepicker .container__days .day-item.is-start-date.is-end-date{border-top-left-radius:5px;border-bottom-left-radius:5px;border-top-right-radius:5px;border-bottom-right-radius:5px}.litepicker .container__days .day-item.is-highlighted{color:var(--litepicker-highlighted-day-color);background-color:var(--litepicker-highlighted-day-color-bg)}.litepicker .container__days .week-number{display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-align:center;-ms-flex-align:center;align-items:center;-webkit-box-pack:center;-ms-flex-pack:center;justify-content:center;color:var(--litepicker-month-week-number-color);font-size:85%}.litepicker .container__footer{text-align:right;padding:10px 5px;margin:0 5px;background-color:var(--litepicker-footer-color-bg);-webkit-box-shadow:inset 0px 3px 3px 0px var(--litepicker-footer-box-shadow-color);box-shadow:inset 0px 3px 3px 0px var(--litepicker-footer-box-shadow-color);border-bottom-left-radius:5px;border-bottom-right-radius:5px}.litepicker .container__footer .preview-date-range{margin-right:10px;font-size:90%}.litepicker .container__footer .button-cancel{background-color:var(--litepicker-button-cancel-color-bg);color:var(--litepicker-button-cancel-color);border:0;padding:3px 7px 4px;border-radius:3px}.litepicker .container__footer .button-cancel *{pointer-events:none}.litepicker .container__footer .button-apply{background-color:var(--litepicker-button-apply-color-bg);color:var(--litepicker-button-apply-color);border:0;padding:3px 7px 4px;border-radius:3px;margin-left:10px;margin-right:10px}.litepicker .container__footer .button-apply:disabled{opacity:0.7}.litepicker .container__footer .button-apply *{pointer-events:none}.litepicker .container__tooltip{position:absolute;margin-top:-4px;padding:4px 8px;border-radius:4px;background-color:var(--litepicker-tooltip-color-bg);-webkit-box-shadow:0 1px 3px rgba(0,0,0,0.25);box-shadow:0 1px 3px rgba(0,0,0,0.25);white-space:nowrap;font-size:11px;pointer-events:none;visibility:hidden}.litepicker .container__tooltip:before{position:absolute;bottom:-5px;left:calc(50% - 5px);border-top:5px solid rgba(0,0,0,0.12);border-right:5px solid transparent;border-left:5px solid transparent;content:""}.litepicker .container__tooltip:after{position:absolute;bottom:-4px;left:calc(50% - 4px);border-top:4px solid var(--litepicker-tooltip-color-bg);border-right:4px solid transparent;border-left:4px solid transparent;content:""}
+</style><style class="darkreader darkreader--sync" media="screen"></style><style class="darkreader darkreader--fallback" media="screen"></style><style class="darkreader darkreader--user-agent" media="screen">@layer {
+html {
+    background-color: var(--darkreader-background-ffffff, #181a1b) !important;
+}
+html {
+    color-scheme: dark !important;
+}
+iframe {
+    color-scheme: dark !important;
+}
+html, body {
+    background-color: var(--darkreader-background-ffffff, #181a1b);
+}
+html, body {
+    border-color: var(--darkreader-border-4c4c4c, #736b5e);
+    color: var(--darkreader-text-000000, #e8e6e3);
+}
+a {
+    color: var(--darkreader-text-0040ff, #3391ff);
+}
+table {
+    border-color: var(--darkreader-border-808080, #545b5e);
+}
+mark {
+    color: var(--darkreader-text-000000, #e8e6e3);
+}
+::placeholder {
+    color: var(--darkreader-text-a9a9a9, #b2aba1);
+}
+input:-webkit-autofill,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+    background-color: var(--darkreader-background-faffbd, #404400) !important;
+    color: var(--darkreader-text-000000, #e8e6e3) !important;
+}
+::selection {
+    background-color: var(--darkreader-background-0060d4, #004daa) !important;
+    color: var(--darkreader-text-ffffff, #e8e6e3) !important;
+}
+::-moz-selection {
+    background-color: var(--darkreader-background-0060d4, #004daa) !important;
+    color: var(--darkreader-text-ffffff, #e8e6e3) !important;
+}
+}</style><style class="darkreader darkreader--text" media="screen"></style><style class="darkreader darkreader--invert" media="screen">.jfk-bubble.gtx-bubble, .captcheck_answer_label > input + img, span#closed_text > img[src^="https://www.gstatic.com/images/branding/googlelogo"], span[data-href^="https://www.hcaptcha.com/"] > #icon, img.Wirisformula, a[data-testid="headerMediumLogo"]>svg, .d2l-navigation-link-image-container, .d2l-iframe-loading-container {
+    filter: invert(100%) hue-rotate(180deg) contrast(90%) !important;
+}</style><style class="darkreader darkreader--inline" media="screen">[data-darkreader-inline-bgcolor] {
+  background-color: var(--darkreader-inline-bgcolor) !important;
+}
+[data-darkreader-inline-bgimage] {
+  background-image: var(--darkreader-inline-bgimage) !important;
+}
+[data-darkreader-inline-border] {
+  border-color: var(--darkreader-inline-border) !important;
+}
+[data-darkreader-inline-border-bottom] {
+  border-bottom-color: var(--darkreader-inline-border-bottom) !important;
+}
+[data-darkreader-inline-border-left] {
+  border-left-color: var(--darkreader-inline-border-left) !important;
+}
+[data-darkreader-inline-border-right] {
+  border-right-color: var(--darkreader-inline-border-right) !important;
+}
+[data-darkreader-inline-border-top] {
+  border-top-color: var(--darkreader-inline-border-top) !important;
+}
+[data-darkreader-inline-boxshadow] {
+  box-shadow: var(--darkreader-inline-boxshadow) !important;
+}
+[data-darkreader-inline-color] {
+  color: var(--darkreader-inline-color) !important;
+}
+[data-darkreader-inline-fill] {
+  fill: var(--darkreader-inline-fill) !important;
+}
+[data-darkreader-inline-stroke] {
+  stroke: var(--darkreader-inline-stroke) !important;
+}
+[data-darkreader-inline-outline] {
+  outline-color: var(--darkreader-inline-outline) !important;
+}
+[data-darkreader-inline-stopcolor] {
+  stop-color: var(--darkreader-inline-stopcolor) !important;
+}
+[data-darkreader-inline-bg] {
+  background: var(--darkreader-inline-bg) !important;
+}
+[data-darkreader-inline-border-short] {
+  border: var(--darkreader-inline-border-short) !important;
+}
+[data-darkreader-inline-border-bottom-short] {
+  border-bottom: var(--darkreader-inline-border-bottom-short) !important;
+}
+[data-darkreader-inline-border-left-short] {
+  border-left: var(--darkreader-inline-border-left-short) !important;
+}
+[data-darkreader-inline-border-right-short] {
+  border-right: var(--darkreader-inline-border-right-short) !important;
+}
+[data-darkreader-inline-border-top-short] {
+  border-top: var(--darkreader-inline-border-top-short) !important;
+}
+[data-darkreader-inline-invert] {
+    filter: invert(100%) hue-rotate(180deg);
+}</style><style class="darkreader darkreader--variables" media="screen">:root {
+   --darkreader-neutral-background: var(--darkreader-background-ffffff, #181a1b);
+   --darkreader-neutral-text: var(--darkreader-text-000000, #e8e6e3);
+   --darkreader-selection-background: var(--darkreader-background-0060d4, #004daa);
+   --darkreader-selection-text: var(--darkreader-text-ffffff, #e8e6e3);
+}</style><style class="darkreader darkreader--root-vars" media="screen"></style>
+
+	<meta charset="utf-8">
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+	<meta http-equiv="Pragma" content="no-cache">
+	<meta http-equiv="Expires" content="0">
+	<meta http-equiv="Cache-Control" content="no-cache">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<!-- Tell the browser to be responsive to screen width -->
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="description" content="">
+	<meta name="author" content="">
+	<!-- Favicon icon -->
+	<link rel="icon" type="image/png" sizes="16x16" href="/assets/images/favicon.png">
+
+
+	<title>
+		eTIMS Taxpayer Portal :::
+		
+			
+				eTIMS Menu
+			
+				&gt; Transaction Management
+			
+				&gt; Sales Receipt
+			
+        
+	</title>
+
+	<meta name="darkreader" content="53bc0bf5e2d84736bc7fd594f7df459d"><style class="darkreader darkreader--override" media="screen">.vimvixen-hint {
+    background-color: var(--darkreader-background-ffd76e, #684b00) !important;
+    border-color: var(--darkreader-background-c59d00, #9e7e00) !important;
+    color: var(--darkreader-text-302505, #d7d4cf) !important;
+}
+#vimvixen-console-frame {
+    color-scheme: light !important;
+}
+::placeholder {
+    opacity: 0.5 !important;
+}
+#edge-translate-panel-body,
+.MuiTypography-body1,
+.nfe-quote-text {
+    color: var(--darkreader-neutral-text) !important;
+}
+gr-main-header {
+    background-color: var(--darkreader-background-add8e6, #1b4958) !important;
+}
+.tou-z65h9k,
+.tou-mignzq,
+.tou-1b6i2ox,
+.tou-lnqlqk {
+    background-color: var(--darkreader-neutral-background) !important;
+}
+.tou-75mvi {
+    background-color: var(--darkreader-background-cfecf5, #0f3a47) !important;
+}
+.tou-ta9e87,
+.tou-1w3fhi0,
+.tou-1b8t2us,
+.tou-py7lfi,
+.tou-1lpmd9d,
+.tou-1frrtv8,
+.tou-17ezmgn {
+    background-color: var(--darkreader-background-f5f5f5, #1e2021) !important;
+}
+.tou-uknfeu {
+    background-color: var(--darkreader-background-faedda, #432c09) !important;
+}
+.tou-6i3zyv {
+    background-color: var(--darkreader-background-85c3d8, #245d70) !important;
+}
+div.mermaid-viewer-control-panel .btn {
+    background-color: var(--darkreader-neutral-background);
+    fill: var(--darkreader-neutral-text);
+}
+svg g rect.er {
+    fill: var(--darkreader-neutral-background) !important;
+}
+svg g rect.er.entityBox {
+    fill: var(--darkreader-neutral-background) !important;
+}
+svg g rect.er.attributeBoxOdd {
+    fill: var(--darkreader-neutral-background) !important;
+}
+svg g rect.er.attributeBoxEven {
+    fill: var(--darkreader-selection-background);
+    fill-opacity: 0.8 !important;
+}
+svg rect.er.relationshipLabelBox {
+    fill: var(--darkreader-neutral-background) !important;
+}
+svg g g.nodes rect,
+svg g g.nodes polygon {
+    fill: var(--darkreader-neutral-background) !important;
+}
+svg g rect.task {
+    fill: var(--darkreader-selection-background) !important;
+}
+svg line.messageLine0,
+svg line.messageLine1 {
+    stroke: var(--darkreader-neutral-text) !important;
+}
+div.mermaid .actor {
+    fill: var(--darkreader-neutral-background) !important;
+}
+mitid-authenticators-code-app > .code-app-container {
+    background-color: white !important;
+    padding-top: 1rem;
+}
+iframe#unpaywall[src$="unpaywall.html"] {
+    color-scheme: light !important;
+}
+select {
+    --darkreader-bg--form-control-background-color: rgba(22, 22, 22, 0) !important;
+}
+body#tumblr {
+    --darkreader-bg--secondary-accent: 31, 32, 34 !important;
+    --darkreader-bg--white: 23, 23, 23 !important;
+    --darkreader-text--black: 228, 224, 218 !important;
+}
+:host {
+    --d2l-border-color: var(--darkreader-bg--d2l-color-gypsum) !important;
+    --d2l-button-icon-background-color-hover: var(--darkreader-bg--d2l-color-gypsum) !important;
+    --d2l-color-ferrite: var(--darkreader-neutral-text) !important;
+    --d2l-color-sylvite: var(--darkreader-bg--d2l-color-sylvite) !important;
+    --d2l-dropdown-background-color: var(--darkreader-neutral-background) !important;
+    --d2l-dropdown-border-color: var(--darkreader-border--d2l-color-mica) !important;
+    --d2l-input-backgroud-color: var(--darkreader-neutral-background) !important;
+    --d2l-menu-border-color: var(--darkreader-bg--d2l-color-gypsum) !important;
+    --d2l-tooltip-background-color: var(--darkreader-neutral-background) !important;
+    --d2l-tooltip-border-color: var(--darkreader-bg--d2l-color-gypsum) !important;
+}
+:host([_floating]) .d2l-floating-buttons-container {
+    background-color: var(--darkreader-neutral-background) !important;
+    border-top-color: var(--darkreader-border--d2l-color-mica) !important;
+    opacity: 0.88 !important;
+}
+d2l-card {
+    background: var(--darkreader-neutral-background) !important;
+    border-color: var(--darkreader-border--d2l-color-gypsum) !important;
+}
+d2l-dropdown-content > div,
+d2l-menu-item {
+    background-color: var(--darkreader-neutral-background) !important;
+    border-radius: 10px !important;
+}
+d2l-empty-state-simple {
+    border-color: var(--darkreader-bg--d2l-color-gypsum) !important;
+}
+.d2l-button-filter > ul > li > a.vui-button {
+    border-color: var(--darkreader-border--d2l-color-mica) !important;
+}
+.d2l-label-text:has(.d2l-button-subtle-content):hover,
+.d2l-label-text:has(.d2l-button-subtle-content):focus,
+.d2l-label-text:has(.d2l-button-subtle-content):active {
+    background-color: var(--darkreader-bg--d2l-color-gypsum) !important;
+}
+.d2l-navigation-centerer {
+    color: inherit !important;
+}
+.d2l-tabs-layout {
+    border-color: var(--darkreader-border--d2l-color-gypsum) !important;
+}
+.d2l-input,
+.d2l-calendar-date,
+.d2l-htmleditor-container {
+    background-color: var(--darkreader-neutral-background) !important;
+}
+.d2l-collapsible-panel {
+    border: 1px solid var(--darkreader-border--d2l-color-mica) !important;
+    border-radius: 0.4rem !important;
+}
+.d2l-collapsible-panel-divider {
+    border-bottom: 1px solid var(--darkreader-border--d2l-color-mica) !important;
+}
+.d2l-w2d-flex {
+    border-bottom: 2px solid var(--darkreader-border--d2l-color-mica) !important;
+}
+.d2l-collapsible-panel scrolled,
+.d2l-collapsible-panel-header,
+.d2l-w2d-collection-fixed {
+    background-color: var(--darkreader-neutral-background) !important;
+}
+.d2l-loading-spinner-bg {
+    fill: var(--darkreader-bg--d2l-color-gypsum) !important;
+}
+.d2l-loading-spinner-bg-stroke {
+    stroke: var(--darkreader-border--d2l-color-mica) !important;
+}
+.d2l-loading-spinner-wrapper svg path,
+.d2l-loading-spinner-wrapper svg circle {
+    fill: var(--darkreader-neutral-background) !important;
+}
+.d2l-twopanelselector-side.d2l-twopanelselector-side-sep {
+    background: var(--darkreader-bg--d2l-color-mica) !important;
+}
+.d2l-le-TreeAccordionItem-anchor::before {
+    background: var(--darkreader-bg--d2l-color-corundum) !important;
+}
+embed[type="application/pdf"][src="about:blank"] { filter: invert(100%) contrast(90%); }</style>
+
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" type="text/css" href="/css/style.css"><style class="darkreader darkreader--sync" media="screen"></style>
+    <link rel="stylesheet" type="text/css" href="/css/custom.css"><style class="darkreader darkreader--sync" media="screen"></style>
+
+    <!-- All Jquery-DEFAULT js -->
+    <script src="/assets/libs/jquery/dist/jquery.min.js"></script>
+	<script type="text/javascript" src="/js/jquery.serializejson.min.js" charset="utf-8"></script>
+	<script type="text/javascript" src="/js/jquery.form.min.js" charset="utf-8"></script>
+	<script type="text/javascript" src="/js/jquery.mask.js" charset="utf-8"></script>
+
+	<script type="text/javascript" src="/js/es6-promise.min.js"></script>
+	<script type="text/javascript" src="/js/es6-promise.auto.min.js"></script>
+
+    <!-- Bootstrap tether Core JavaScript -->
+    <script type="text/javascript" src="/assets/libs/popper.js/dist/umd/popper.min.js" charset="utf-8"></script>
+    <script type="text/javascript" src="/assets/libs/bootstrap/dist/js/bootstrap.min.js" charset="utf-8"></script>
+
+    <!-- apps -->
+    <script type="text/javascript" src="/js/app.min.js" charset="utf-8"></script>
+    <script type="text/javascript" src="/js/app.init.horizontal.js" charset="utf-8"></script>
+    <script type="text/javascript" src="/js/app-style-switcher.horizontal.js" charset="utf-8"></script>
+
+    <!-- slimscrollbar scrollbar JavaScript -->
+    <script type="text/javascript" src="/assets/libs/perfect-scrollbar/dist/perfect-scrollbar.jquery.min.js" charset="utf-8"></script>
+    <script type="text/javascript" src="/assets/extra-libs/sparkline/sparkline.js" charset="utf-8"></script>
+
+    <!--Menu sidebar -->
+    <script type="text/javascript" src="/js/sidebarmenu.js" charset="utf-8"></script>
+
+    <!--Custom JavaScript -->
+    <script type="text/javascript" src="/js/custom.min.js" charset="utf-8"></script>
+
+	<!-- Jquery Validation -->
+	<link rel="stylesheet" type="text/css" href="/assets/libs/jQuery-Validation-Engine-master/css/validationEngine.jquery.css"><style class="darkreader darkreader--sync" media="screen"></style>
+	<script src="/assets/libs/jQuery-Validation-Engine-master/js/jquery.validationEngine.js" charset="utf-8"></script>
+	<script src="/assets/libs/jQuery-Validation-Engine-master/js/languages/jquery.validationEngine-en.js" charset="utf-8"></script>
+
+	<!-- Jquery blockUI (Progress) -->
+	<script type="text/javascript" src="/assets/libs/block-ui/jquery.blockUI.js" charset="utf-8"></script>
+
+	<!-- Sweetalert -->
+    <link rel="stylesheet" type="text/css" href="/assets/libs/sweetalert2/dist/sweetalert2.min.css"><style class="darkreader darkreader--sync" media="screen"></style>
+    <script type="text/javascript" src="/assets/libs/sweetalert2/dist/sweetalert2.all.min.js" charset="utf-8"></script><style>@charset "UTF-8";@-webkit-keyframes swal2-show{0%{-webkit-transform:scale(.7);transform:scale(.7)}45%{-webkit-transform:scale(1.05);transform:scale(1.05)}80%{-webkit-transform:scale(.95);transform:scale(.95)}100%{-webkit-transform:scale(1);transform:scale(1)}}@keyframes swal2-show{0%{-webkit-transform:scale(.7);transform:scale(.7)}45%{-webkit-transform:scale(1.05);transform:scale(1.05)}80%{-webkit-transform:scale(.95);transform:scale(.95)}100%{-webkit-transform:scale(1);transform:scale(1)}}@-webkit-keyframes swal2-hide{0%{-webkit-transform:scale(1);transform:scale(1);opacity:1}100%{-webkit-transform:scale(.5);transform:scale(.5);opacity:0}}@keyframes swal2-hide{0%{-webkit-transform:scale(1);transform:scale(1);opacity:1}100%{-webkit-transform:scale(.5);transform:scale(.5);opacity:0}}@-webkit-keyframes swal2-animate-success-line-tip{0%{top:1.1875em;left:.0625em;width:0}54%{top:1.0625em;left:.125em;width:0}70%{top:2.1875em;left:-.375em;width:3.125em}84%{top:3em;left:1.3125em;width:1.0625em}100%{top:2.8125em;left:.875em;width:1.5625em}}@keyframes swal2-animate-success-line-tip{0%{top:1.1875em;left:.0625em;width:0}54%{top:1.0625em;left:.125em;width:0}70%{top:2.1875em;left:-.375em;width:3.125em}84%{top:3em;left:1.3125em;width:1.0625em}100%{top:2.8125em;left:.875em;width:1.5625em}}@-webkit-keyframes swal2-animate-success-line-long{0%{top:3.375em;right:2.875em;width:0}65%{top:3.375em;right:2.875em;width:0}84%{top:2.1875em;right:0;width:3.4375em}100%{top:2.375em;right:.5em;width:2.9375em}}@keyframes swal2-animate-success-line-long{0%{top:3.375em;right:2.875em;width:0}65%{top:3.375em;right:2.875em;width:0}84%{top:2.1875em;right:0;width:3.4375em}100%{top:2.375em;right:.5em;width:2.9375em}}@-webkit-keyframes swal2-rotate-success-circular-line{0%{-webkit-transform:rotate(-45deg);transform:rotate(-45deg)}5%{-webkit-transform:rotate(-45deg);transform:rotate(-45deg)}12%{-webkit-transform:rotate(-405deg);transform:rotate(-405deg)}100%{-webkit-transform:rotate(-405deg);transform:rotate(-405deg)}}@keyframes swal2-rotate-success-circular-line{0%{-webkit-transform:rotate(-45deg);transform:rotate(-45deg)}5%{-webkit-transform:rotate(-45deg);transform:rotate(-45deg)}12%{-webkit-transform:rotate(-405deg);transform:rotate(-405deg)}100%{-webkit-transform:rotate(-405deg);transform:rotate(-405deg)}}@-webkit-keyframes swal2-animate-error-x-mark{0%{margin-top:1.625em;-webkit-transform:scale(.4);transform:scale(.4);opacity:0}50%{margin-top:1.625em;-webkit-transform:scale(.4);transform:scale(.4);opacity:0}80%{margin-top:-.375em;-webkit-transform:scale(1.15);transform:scale(1.15)}100%{margin-top:0;-webkit-transform:scale(1);transform:scale(1);opacity:1}}@keyframes swal2-animate-error-x-mark{0%{margin-top:1.625em;-webkit-transform:scale(.4);transform:scale(.4);opacity:0}50%{margin-top:1.625em;-webkit-transform:scale(.4);transform:scale(.4);opacity:0}80%{margin-top:-.375em;-webkit-transform:scale(1.15);transform:scale(1.15)}100%{margin-top:0;-webkit-transform:scale(1);transform:scale(1);opacity:1}}@-webkit-keyframes swal2-animate-error-icon{0%{-webkit-transform:rotateX(100deg);transform:rotateX(100deg);opacity:0}100%{-webkit-transform:rotateX(0);transform:rotateX(0);opacity:1}}@keyframes swal2-animate-error-icon{0%{-webkit-transform:rotateX(100deg);transform:rotateX(100deg);opacity:0}100%{-webkit-transform:rotateX(0);transform:rotateX(0);opacity:1}}body.swal2-toast-shown .swal2-container{background-color:transparent}body.swal2-toast-shown .swal2-container.swal2-shown{background-color:transparent}body.swal2-toast-shown .swal2-container.swal2-top{top:0;right:auto;bottom:auto;left:50%;-webkit-transform:translateX(-50%);transform:translateX(-50%)}body.swal2-toast-shown .swal2-container.swal2-top-end,body.swal2-toast-shown .swal2-container.swal2-top-right{top:0;right:0;bottom:auto;left:auto}body.swal2-toast-shown .swal2-container.swal2-top-left,body.swal2-toast-shown .swal2-container.swal2-top-start{top:0;right:auto;bottom:auto;left:0}body.swal2-toast-shown .swal2-container.swal2-center-left,body.swal2-toast-shown .swal2-container.swal2-center-start{top:50%;right:auto;bottom:auto;left:0;-webkit-transform:translateY(-50%);transform:translateY(-50%)}body.swal2-toast-shown .swal2-container.swal2-center{top:50%;right:auto;bottom:auto;left:50%;-webkit-transform:translate(-50%,-50%);transform:translate(-50%,-50%)}body.swal2-toast-shown .swal2-container.swal2-center-end,body.swal2-toast-shown .swal2-container.swal2-center-right{top:50%;right:0;bottom:auto;left:auto;-webkit-transform:translateY(-50%);transform:translateY(-50%)}body.swal2-toast-shown .swal2-container.swal2-bottom-left,body.swal2-toast-shown .swal2-container.swal2-bottom-start{top:auto;right:auto;bottom:0;left:0}body.swal2-toast-shown .swal2-container.swal2-bottom{top:auto;right:auto;bottom:0;left:50%;-webkit-transform:translateX(-50%);transform:translateX(-50%)}body.swal2-toast-shown .swal2-container.swal2-bottom-end,body.swal2-toast-shown .swal2-container.swal2-bottom-right{top:auto;right:0;bottom:0;left:auto}body.swal2-toast-column .swal2-toast{flex-direction:column;align-items:stretch}body.swal2-toast-column .swal2-toast .swal2-actions{flex:1;align-self:stretch;height:2.2em;margin-top:.3125em}body.swal2-toast-column .swal2-toast .swal2-loading{justify-content:center}body.swal2-toast-column .swal2-toast .swal2-input{height:2em;margin:.3125em auto;font-size:1em}body.swal2-toast-column .swal2-toast .swal2-validation-message{font-size:1em}.swal2-popup.swal2-toast{flex-direction:row;align-items:center;width:auto;padding:.625em;overflow-y:hidden;box-shadow:0 0 .625em #d9d9d9}.swal2-popup.swal2-toast .swal2-header{flex-direction:row}.swal2-popup.swal2-toast .swal2-title{flex-grow:1;justify-content:flex-start;margin:0 .6em;font-size:1em}.swal2-popup.swal2-toast .swal2-footer{margin:.5em 0 0;padding:.5em 0 0;font-size:.8em}.swal2-popup.swal2-toast .swal2-close{position:initial;width:.8em;height:.8em;line-height:.8}.swal2-popup.swal2-toast .swal2-content{justify-content:flex-start;font-size:1em}.swal2-popup.swal2-toast .swal2-icon{width:2em;min-width:2em;height:2em;margin:0}.swal2-popup.swal2-toast .swal2-icon::before{display:flex;align-items:center;font-size:2em;font-weight:700}@media all and (-ms-high-contrast:none),(-ms-high-contrast:active){.swal2-popup.swal2-toast .swal2-icon::before{font-size:.25em}}.swal2-popup.swal2-toast .swal2-icon.swal2-success .swal2-success-ring{width:2em;height:2em}.swal2-popup.swal2-toast .swal2-icon.swal2-error [class^=swal2-x-mark-line]{top:.875em;width:1.375em}.swal2-popup.swal2-toast .swal2-icon.swal2-error [class^=swal2-x-mark-line][class$=left]{left:.3125em}.swal2-popup.swal2-toast .swal2-icon.swal2-error [class^=swal2-x-mark-line][class$=right]{right:.3125em}.swal2-popup.swal2-toast .swal2-actions{height:auto;margin:0 .3125em}.swal2-popup.swal2-toast .swal2-styled{margin:0 .3125em;padding:.3125em .625em;font-size:1em}.swal2-popup.swal2-toast .swal2-styled:focus{box-shadow:0 0 0 .0625em #fff,0 0 0 .125em rgba(50,100,150,.4)}.swal2-popup.swal2-toast .swal2-success{border-color:#a5dc86}.swal2-popup.swal2-toast .swal2-success [class^=swal2-success-circular-line]{position:absolute;width:2em;height:2.8125em;-webkit-transform:rotate(45deg);transform:rotate(45deg);border-radius:50%}.swal2-popup.swal2-toast .swal2-success [class^=swal2-success-circular-line][class$=left]{top:-.25em;left:-.9375em;-webkit-transform:rotate(-45deg);transform:rotate(-45deg);-webkit-transform-origin:2em 2em;transform-origin:2em 2em;border-radius:4em 0 0 4em}.swal2-popup.swal2-toast .swal2-success [class^=swal2-success-circular-line][class$=right]{top:-.25em;left:.9375em;-webkit-transform-origin:0 2em;transform-origin:0 2em;border-radius:0 4em 4em 0}.swal2-popup.swal2-toast .swal2-success .swal2-success-ring{width:2em;height:2em}.swal2-popup.swal2-toast .swal2-success .swal2-success-fix{top:0;left:.4375em;width:.4375em;height:2.6875em}.swal2-popup.swal2-toast .swal2-success [class^=swal2-success-line]{height:.3125em}.swal2-popup.swal2-toast .swal2-success [class^=swal2-success-line][class$=tip]{top:1.125em;left:.1875em;width:.75em}.swal2-popup.swal2-toast .swal2-success [class^=swal2-success-line][class$=long]{top:.9375em;right:.1875em;width:1.375em}.swal2-popup.swal2-toast.swal2-show{-webkit-animation:showSweetToast .5s;animation:showSweetToast .5s}.swal2-popup.swal2-toast.swal2-hide{-webkit-animation:hideSweetToast .2s forwards;animation:hideSweetToast .2s forwards}.swal2-popup.swal2-toast .swal2-animate-success-icon .swal2-success-line-tip{-webkit-animation:animate-toast-success-tip .75s;animation:animate-toast-success-tip .75s}.swal2-popup.swal2-toast .swal2-animate-success-icon .swal2-success-line-long{-webkit-animation:animate-toast-success-long .75s;animation:animate-toast-success-long .75s}@-webkit-keyframes showSweetToast{0%{-webkit-transform:translateY(-.625em) rotateZ(2deg);transform:translateY(-.625em) rotateZ(2deg);opacity:0}33%{-webkit-transform:translateY(0) rotateZ(-2deg);transform:translateY(0) rotateZ(-2deg);opacity:.5}66%{-webkit-transform:translateY(.3125em) rotateZ(2deg);transform:translateY(.3125em) rotateZ(2deg);opacity:.7}100%{-webkit-transform:translateY(0) rotateZ(0);transform:translateY(0) rotateZ(0);opacity:1}}@keyframes showSweetToast{0%{-webkit-transform:translateY(-.625em) rotateZ(2deg);transform:translateY(-.625em) rotateZ(2deg);opacity:0}33%{-webkit-transform:translateY(0) rotateZ(-2deg);transform:translateY(0) rotateZ(-2deg);opacity:.5}66%{-webkit-transform:translateY(.3125em) rotateZ(2deg);transform:translateY(.3125em) rotateZ(2deg);opacity:.7}100%{-webkit-transform:translateY(0) rotateZ(0);transform:translateY(0) rotateZ(0);opacity:1}}@-webkit-keyframes hideSweetToast{0%{opacity:1}33%{opacity:.5}100%{-webkit-transform:rotateZ(1deg);transform:rotateZ(1deg);opacity:0}}@keyframes hideSweetToast{0%{opacity:1}33%{opacity:.5}100%{-webkit-transform:rotateZ(1deg);transform:rotateZ(1deg);opacity:0}}@-webkit-keyframes animate-toast-success-tip{0%{top:.5625em;left:.0625em;width:0}54%{top:.125em;left:.125em;width:0}70%{top:.625em;left:-.25em;width:1.625em}84%{top:1.0625em;left:.75em;width:.5em}100%{top:1.125em;left:.1875em;width:.75em}}@keyframes animate-toast-success-tip{0%{top:.5625em;left:.0625em;width:0}54%{top:.125em;left:.125em;width:0}70%{top:.625em;left:-.25em;width:1.625em}84%{top:1.0625em;left:.75em;width:.5em}100%{top:1.125em;left:.1875em;width:.75em}}@-webkit-keyframes animate-toast-success-long{0%{top:1.625em;right:1.375em;width:0}65%{top:1.25em;right:.9375em;width:0}84%{top:.9375em;right:0;width:1.125em}100%{top:.9375em;right:.1875em;width:1.375em}}@keyframes animate-toast-success-long{0%{top:1.625em;right:1.375em;width:0}65%{top:1.25em;right:.9375em;width:0}84%{top:.9375em;right:0;width:1.125em}100%{top:.9375em;right:.1875em;width:1.375em}}body.swal2-shown:not(.swal2-no-backdrop):not(.swal2-toast-shown){overflow:hidden}body.swal2-height-auto{height:auto!important}body.swal2-no-backdrop .swal2-shown{top:auto;right:auto;bottom:auto;left:auto;max-width:calc(100% - .625em * 2);background-color:transparent}body.swal2-no-backdrop .swal2-shown>.swal2-modal{box-shadow:0 0 10px rgba(0,0,0,.4)}body.swal2-no-backdrop .swal2-shown.swal2-top{top:0;left:50%;-webkit-transform:translateX(-50%);transform:translateX(-50%)}body.swal2-no-backdrop .swal2-shown.swal2-top-left,body.swal2-no-backdrop .swal2-shown.swal2-top-start{top:0;left:0}body.swal2-no-backdrop .swal2-shown.swal2-top-end,body.swal2-no-backdrop .swal2-shown.swal2-top-right{top:0;right:0}body.swal2-no-backdrop .swal2-shown.swal2-center{top:50%;left:50%;-webkit-transform:translate(-50%,-50%);transform:translate(-50%,-50%)}body.swal2-no-backdrop .swal2-shown.swal2-center-left,body.swal2-no-backdrop .swal2-shown.swal2-center-start{top:50%;left:0;-webkit-transform:translateY(-50%);transform:translateY(-50%)}body.swal2-no-backdrop .swal2-shown.swal2-center-end,body.swal2-no-backdrop .swal2-shown.swal2-center-right{top:50%;right:0;-webkit-transform:translateY(-50%);transform:translateY(-50%)}body.swal2-no-backdrop .swal2-shown.swal2-bottom{bottom:0;left:50%;-webkit-transform:translateX(-50%);transform:translateX(-50%)}body.swal2-no-backdrop .swal2-shown.swal2-bottom-left,body.swal2-no-backdrop .swal2-shown.swal2-bottom-start{bottom:0;left:0}body.swal2-no-backdrop .swal2-shown.swal2-bottom-end,body.swal2-no-backdrop .swal2-shown.swal2-bottom-right{right:0;bottom:0}.swal2-container{display:flex;position:fixed;z-index:1060;top:0;right:0;bottom:0;left:0;flex-direction:row;align-items:center;justify-content:center;padding:.625em;overflow-x:hidden;background-color:transparent;-webkit-overflow-scrolling:touch}.swal2-container.swal2-top{align-items:flex-start}.swal2-container.swal2-top-left,.swal2-container.swal2-top-start{align-items:flex-start;justify-content:flex-start}.swal2-container.swal2-top-end,.swal2-container.swal2-top-right{align-items:flex-start;justify-content:flex-end}.swal2-container.swal2-center{align-items:center}.swal2-container.swal2-center-left,.swal2-container.swal2-center-start{align-items:center;justify-content:flex-start}.swal2-container.swal2-center-end,.swal2-container.swal2-center-right{align-items:center;justify-content:flex-end}.swal2-container.swal2-bottom{align-items:flex-end}.swal2-container.swal2-bottom-left,.swal2-container.swal2-bottom-start{align-items:flex-end;justify-content:flex-start}.swal2-container.swal2-bottom-end,.swal2-container.swal2-bottom-right{align-items:flex-end;justify-content:flex-end}.swal2-container.swal2-bottom-end>:first-child,.swal2-container.swal2-bottom-left>:first-child,.swal2-container.swal2-bottom-right>:first-child,.swal2-container.swal2-bottom-start>:first-child,.swal2-container.swal2-bottom>:first-child{margin-top:auto}.swal2-container.swal2-grow-fullscreen>.swal2-modal{display:flex!important;flex:1;align-self:stretch;justify-content:center}.swal2-container.swal2-grow-row>.swal2-modal{display:flex!important;flex:1;align-content:center;justify-content:center}.swal2-container.swal2-grow-column{flex:1;flex-direction:column}.swal2-container.swal2-grow-column.swal2-bottom,.swal2-container.swal2-grow-column.swal2-center,.swal2-container.swal2-grow-column.swal2-top{align-items:center}.swal2-container.swal2-grow-column.swal2-bottom-left,.swal2-container.swal2-grow-column.swal2-bottom-start,.swal2-container.swal2-grow-column.swal2-center-left,.swal2-container.swal2-grow-column.swal2-center-start,.swal2-container.swal2-grow-column.swal2-top-left,.swal2-container.swal2-grow-column.swal2-top-start{align-items:flex-start}.swal2-container.swal2-grow-column.swal2-bottom-end,.swal2-container.swal2-grow-column.swal2-bottom-right,.swal2-container.swal2-grow-column.swal2-center-end,.swal2-container.swal2-grow-column.swal2-center-right,.swal2-container.swal2-grow-column.swal2-top-end,.swal2-container.swal2-grow-column.swal2-top-right{align-items:flex-end}.swal2-container.swal2-grow-column>.swal2-modal{display:flex!important;flex:1;align-content:center;justify-content:center}.swal2-container:not(.swal2-top):not(.swal2-top-start):not(.swal2-top-end):not(.swal2-top-left):not(.swal2-top-right):not(.swal2-center-start):not(.swal2-center-end):not(.swal2-center-left):not(.swal2-center-right):not(.swal2-bottom):not(.swal2-bottom-start):not(.swal2-bottom-end):not(.swal2-bottom-left):not(.swal2-bottom-right):not(.swal2-grow-fullscreen)>.swal2-modal{margin:auto}@media all and (-ms-high-contrast:none),(-ms-high-contrast:active){.swal2-container .swal2-modal{margin:0!important}}.swal2-container.swal2-fade{transition:background-color .1s}.swal2-container.swal2-shown{background-color:rgba(0,0,0,.4)}.swal2-popup{display:none;position:relative;box-sizing:border-box;flex-direction:column;justify-content:center;width:32em;max-width:100%;padding:1.25em;border-radius:.3125em;background:#fff;font-family:inherit;font-size:1rem}.swal2-popup:focus{outline:0}.swal2-popup.swal2-loading{overflow-y:hidden}.swal2-popup .swal2-header{display:flex;flex-direction:column;align-items:center}.swal2-popup .swal2-title{display:block;position:relative;max-width:100%;margin:0 0 .4em;padding:0;color:#595959;font-size:1.875em;font-weight:600;text-align:center;text-transform:none;word-wrap:break-word}.swal2-popup .swal2-actions{z-index:1;flex-wrap:wrap;align-items:center;justify-content:center;margin:1.25em auto 0}.swal2-popup .swal2-actions:not(.swal2-loading) .swal2-styled[disabled]{opacity:.4}.swal2-popup .swal2-actions:not(.swal2-loading) .swal2-styled:hover{background-image:linear-gradient(rgba(0,0,0,.1),rgba(0,0,0,.1))}.swal2-popup .swal2-actions:not(.swal2-loading) .swal2-styled:active{background-image:linear-gradient(rgba(0,0,0,.2),rgba(0,0,0,.2))}.swal2-popup .swal2-actions.swal2-loading .swal2-styled.swal2-confirm{box-sizing:border-box;width:2.5em;height:2.5em;margin:.46875em;padding:0;-webkit-animation:swal2-rotate-loading 1.5s linear 0s infinite normal;animation:swal2-rotate-loading 1.5s linear 0s infinite normal;border:.25em solid transparent;border-radius:100%;border-color:transparent;background-color:transparent!important;color:transparent;cursor:default;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none}.swal2-popup .swal2-actions.swal2-loading .swal2-styled.swal2-cancel{margin-right:30px;margin-left:30px}.swal2-popup .swal2-actions.swal2-loading :not(.swal2-styled).swal2-confirm::after{content:'';display:inline-block;width:15px;height:15px;margin-left:5px;-webkit-animation:swal2-rotate-loading 1.5s linear 0s infinite normal;animation:swal2-rotate-loading 1.5s linear 0s infinite normal;border:3px solid #999;border-radius:50%;border-right-color:transparent;box-shadow:1px 1px 1px #fff}.swal2-popup .swal2-styled{margin:.3125em;padding:.625em 2em;box-shadow:none;font-weight:500}.swal2-popup .swal2-styled:not([disabled]){cursor:pointer}.swal2-popup .swal2-styled.swal2-confirm{border:0;border-radius:.25em;background:initial;background-color:#3085d6;color:#fff;font-size:1.0625em}.swal2-popup .swal2-styled.swal2-cancel{border:0;border-radius:.25em;background:initial;background-color:#aaa;color:#fff;font-size:1.0625em}.swal2-popup .swal2-styled:focus{outline:0;box-shadow:0 0 0 2px #fff,0 0 0 4px rgba(50,100,150,.4)}.swal2-popup .swal2-styled::-moz-focus-inner{border:0}.swal2-popup .swal2-footer{justify-content:center;margin:1.25em 0 0;padding:1em 0 0;border-top:1px solid #eee;color:#545454;font-size:1em}.swal2-popup .swal2-image{max-width:100%;margin:1.25em auto}.swal2-popup .swal2-close{position:absolute;top:0;right:0;justify-content:center;width:1.2em;height:1.2em;padding:0;overflow:hidden;transition:color .1s ease-out;border:none;border-radius:0;outline:initial;background:0 0;color:#ccc;font-family:serif;font-size:2.5em;line-height:1.2;cursor:pointer}.swal2-popup .swal2-close:hover{-webkit-transform:none;transform:none;color:#f27474}.swal2-popup>.swal2-checkbox,.swal2-popup>.swal2-file,.swal2-popup>.swal2-input,.swal2-popup>.swal2-radio,.swal2-popup>.swal2-select,.swal2-popup>.swal2-textarea{display:none}.swal2-popup .swal2-content{z-index:1;justify-content:center;margin:0;padding:0;color:#545454;font-size:1.125em;font-weight:300;line-height:normal;word-wrap:break-word}.swal2-popup #swal2-content{text-align:center}.swal2-popup .swal2-checkbox,.swal2-popup .swal2-file,.swal2-popup .swal2-input,.swal2-popup .swal2-radio,.swal2-popup .swal2-select,.swal2-popup .swal2-textarea{margin:1em auto}.swal2-popup .swal2-file,.swal2-popup .swal2-input,.swal2-popup .swal2-textarea{box-sizing:border-box;width:100%;transition:border-color .3s,box-shadow .3s;border:1px solid #d9d9d9;border-radius:.1875em;background:inherit;box-shadow:inset 0 1px 1px rgba(0,0,0,.06);font-size:1.125em}.swal2-popup .swal2-file.swal2-inputerror,.swal2-popup .swal2-input.swal2-inputerror,.swal2-popup .swal2-textarea.swal2-inputerror{border-color:#f27474!important;box-shadow:0 0 2px #f27474!important}.swal2-popup .swal2-file:focus,.swal2-popup .swal2-input:focus,.swal2-popup .swal2-textarea:focus{border:1px solid #b4dbed;outline:0;box-shadow:0 0 3px #c4e6f5}.swal2-popup .swal2-file::-webkit-input-placeholder,.swal2-popup .swal2-input::-webkit-input-placeholder,.swal2-popup .swal2-textarea::-webkit-input-placeholder{color:#ccc}.swal2-popup .swal2-file:-ms-input-placeholder,.swal2-popup .swal2-input:-ms-input-placeholder,.swal2-popup .swal2-textarea:-ms-input-placeholder{color:#ccc}.swal2-popup .swal2-file::-ms-input-placeholder,.swal2-popup .swal2-input::-ms-input-placeholder,.swal2-popup .swal2-textarea::-ms-input-placeholder{color:#ccc}.swal2-popup .swal2-file::placeholder,.swal2-popup .swal2-input::placeholder,.swal2-popup .swal2-textarea::placeholder{color:#ccc}.swal2-popup .swal2-range{margin:1em auto;background:inherit}.swal2-popup .swal2-range input{width:80%}.swal2-popup .swal2-range output{width:20%;font-weight:600;text-align:center}.swal2-popup .swal2-range input,.swal2-popup .swal2-range output{height:2.625em;padding:0;font-size:1.125em;line-height:2.625em}.swal2-popup .swal2-input{height:2.625em;padding:0 .75em}.swal2-popup .swal2-input[type=number]{max-width:10em}.swal2-popup .swal2-file{background:inherit;font-size:1.125em}.swal2-popup .swal2-textarea{height:6.75em;padding:.75em}.swal2-popup .swal2-select{min-width:50%;max-width:100%;padding:.375em .625em;background:inherit;color:#545454;font-size:1.125em}.swal2-popup .swal2-checkbox,.swal2-popup .swal2-radio{align-items:center;justify-content:center;background:inherit}.swal2-popup .swal2-checkbox label,.swal2-popup .swal2-radio label{margin:0 .6em;font-size:1.125em}.swal2-popup .swal2-checkbox input,.swal2-popup .swal2-radio input{margin:0 .4em}.swal2-popup .swal2-validation-message{display:none;align-items:center;justify-content:center;padding:.625em;overflow:hidden;background:#f0f0f0;color:#666;font-size:1em;font-weight:300}.swal2-popup .swal2-validation-message::before{content:'!';display:inline-block;width:1.5em;min-width:1.5em;height:1.5em;margin:0 .625em;zoom:normal;border-radius:50%;background-color:#f27474;color:#fff;font-weight:600;line-height:1.5em;text-align:center}@supports (-ms-accelerator:true){.swal2-range input{width:100%!important}.swal2-range output{display:none}}@media all and (-ms-high-contrast:none),(-ms-high-contrast:active){.swal2-range input{width:100%!important}.swal2-range output{display:none}}@-moz-document url-prefix(){.swal2-close:focus{outline:2px solid rgba(50,100,150,.4)}}.swal2-icon{position:relative;box-sizing:content-box;justify-content:center;width:5em;height:5em;margin:1.25em auto 1.875em;zoom:normal;border:.25em solid transparent;border-radius:50%;line-height:5em;cursor:default;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none}.swal2-icon::before{display:flex;align-items:center;height:92%;font-size:3.75em}.swal2-icon.swal2-error{border-color:#f27474}.swal2-icon.swal2-error .swal2-x-mark{position:relative;flex-grow:1}.swal2-icon.swal2-error [class^=swal2-x-mark-line]{display:block;position:absolute;top:2.3125em;width:2.9375em;height:.3125em;border-radius:.125em;background-color:#f27474}.swal2-icon.swal2-error [class^=swal2-x-mark-line][class$=left]{left:1.0625em;-webkit-transform:rotate(45deg);transform:rotate(45deg)}.swal2-icon.swal2-error [class^=swal2-x-mark-line][class$=right]{right:1em;-webkit-transform:rotate(-45deg);transform:rotate(-45deg)}.swal2-icon.swal2-warning{border-color:#facea8;color:#f8bb86}.swal2-icon.swal2-warning::before{content:'!'}.swal2-icon.swal2-info{border-color:#9de0f6;color:#3fc3ee}.swal2-icon.swal2-info::before{content:'i'}.swal2-icon.swal2-question{border-color:#c9dae1;color:#87adbd}.swal2-icon.swal2-question::before{content:'?'}.swal2-icon.swal2-question.swal2-arabic-question-mark::before{content:'؟'}.swal2-icon.swal2-success{border-color:#a5dc86}.swal2-icon.swal2-success [class^=swal2-success-circular-line]{position:absolute;width:3.75em;height:7.5em;-webkit-transform:rotate(45deg);transform:rotate(45deg);border-radius:50%}.swal2-icon.swal2-success [class^=swal2-success-circular-line][class$=left]{top:-.4375em;left:-2.0635em;-webkit-transform:rotate(-45deg);transform:rotate(-45deg);-webkit-transform-origin:3.75em 3.75em;transform-origin:3.75em 3.75em;border-radius:7.5em 0 0 7.5em}.swal2-icon.swal2-success [class^=swal2-success-circular-line][class$=right]{top:-.6875em;left:1.875em;-webkit-transform:rotate(-45deg);transform:rotate(-45deg);-webkit-transform-origin:0 3.75em;transform-origin:0 3.75em;border-radius:0 7.5em 7.5em 0}.swal2-icon.swal2-success .swal2-success-ring{position:absolute;z-index:2;top:-.25em;left:-.25em;box-sizing:content-box;width:100%;height:100%;border:.25em solid rgba(165,220,134,.3);border-radius:50%}.swal2-icon.swal2-success .swal2-success-fix{position:absolute;z-index:1;top:.5em;left:1.625em;width:.4375em;height:5.625em;-webkit-transform:rotate(-45deg);transform:rotate(-45deg)}.swal2-icon.swal2-success [class^=swal2-success-line]{display:block;position:absolute;z-index:2;height:.3125em;border-radius:.125em;background-color:#a5dc86}.swal2-icon.swal2-success [class^=swal2-success-line][class$=tip]{top:2.875em;left:.875em;width:1.5625em;-webkit-transform:rotate(45deg);transform:rotate(45deg)}.swal2-icon.swal2-success [class^=swal2-success-line][class$=long]{top:2.375em;right:.5em;width:2.9375em;-webkit-transform:rotate(-45deg);transform:rotate(-45deg)}.swal2-progress-steps{align-items:center;margin:0 0 1.25em;padding:0;background:inherit;font-weight:600}.swal2-progress-steps li{display:inline-block;position:relative}.swal2-progress-steps .swal2-progress-step{z-index:20;width:2em;height:2em;border-radius:2em;background:#3085d6;color:#fff;line-height:2em;text-align:center}.swal2-progress-steps .swal2-progress-step.swal2-active-progress-step{background:#3085d6}.swal2-progress-steps .swal2-progress-step.swal2-active-progress-step~.swal2-progress-step{background:#add8e6;color:#fff}.swal2-progress-steps .swal2-progress-step.swal2-active-progress-step~.swal2-progress-step-line{background:#add8e6}.swal2-progress-steps .swal2-progress-step-line{z-index:10;width:2.5em;height:.4em;margin:0 -1px;background:#3085d6}[class^=swal2]{-webkit-tap-highlight-color:transparent}.swal2-show{-webkit-animation:swal2-show .3s;animation:swal2-show .3s}.swal2-show.swal2-noanimation{-webkit-animation:none;animation:none}.swal2-hide{-webkit-animation:swal2-hide .15s forwards;animation:swal2-hide .15s forwards}.swal2-hide.swal2-noanimation{-webkit-animation:none;animation:none}.swal2-rtl .swal2-close{right:auto;left:0}.swal2-animate-success-icon .swal2-success-line-tip{-webkit-animation:swal2-animate-success-line-tip .75s;animation:swal2-animate-success-line-tip .75s}.swal2-animate-success-icon .swal2-success-line-long{-webkit-animation:swal2-animate-success-line-long .75s;animation:swal2-animate-success-line-long .75s}.swal2-animate-success-icon .swal2-success-circular-line-right{-webkit-animation:swal2-rotate-success-circular-line 4.25s ease-in;animation:swal2-rotate-success-circular-line 4.25s ease-in}.swal2-animate-error-icon{-webkit-animation:swal2-animate-error-icon .5s;animation:swal2-animate-error-icon .5s}.swal2-animate-error-icon .swal2-x-mark{-webkit-animation:swal2-animate-error-x-mark .5s;animation:swal2-animate-error-x-mark .5s}@-webkit-keyframes swal2-rotate-loading{0%{-webkit-transform:rotate(0);transform:rotate(0)}100%{-webkit-transform:rotate(360deg);transform:rotate(360deg)}}@keyframes swal2-rotate-loading{0%{-webkit-transform:rotate(0);transform:rotate(0)}100%{-webkit-transform:rotate(360deg);transform:rotate(360deg)}}@media print{body.swal2-shown:not(.swal2-no-backdrop):not(.swal2-toast-shown){overflow-y:scroll!important}body.swal2-shown:not(.swal2-no-backdrop):not(.swal2-toast-shown)>[aria-hidden=true]{display:none}body.swal2-shown:not(.swal2-no-backdrop):not(.swal2-toast-shown) .swal2-container{position:initial!important}}</style><style class="darkreader darkreader--sync" media="screen"></style>
+
+	<!-- Date Picker -->
+	<script src="/assets/libs/moment/moment.js"></script>
+    <link rel="stylesheet" type="text/css" href="/assets/libs/bootstrap-material-datetimepicker/css/bootstrap-material-datetimepicker.css"><style class="darkreader darkreader--sync" media="screen"></style>
+    <script src="/assets/libs/bootstrap-material-datetimepicker/js/bootstrap-material-datetimepicker-custom.js"></script>
+
+    <!--Common JavaScript -->
+    <script type="text/javascript" src="/js/common.js" charset="utf-8"></script>
+	<script type="text/javascript" src="/js/sugar.min.js" charset="utf-8"></script>
+
+	
+
+
+
+
+
+
+
+
+
+
+
+	<script>
+	var cmMsg = {
+			error : {
+				ex500 : "There is an unknown error. Please ask administrator"
+				, ex551 : "Log in is requested"
+				, ex553 : "There is no authority"
+				, ex554 : "The system cannot perform the function you requested."
+			}
+	}
+	</script>
+
+
+	<!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+	<!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+	<!--[if lt IE 9]>
+	    <script src="/js/html5shiv.js"></script>
+	    <script src="/js/respond.min.js"></script>
+	    <![endif]-->
+
+
+	<script type="text/javascript">
+		$(document).ready(function() {
+			$(".preloader").fadeOut();
+		});
+
+		$(function() {
+
+		});
+	</script>
+
+<style type="text/css">.jqstooltip { position: absolute;left: 0px;top: 0px;visibility: hidden;background: rgb(0, 0, 0) transparent;background-color: rgba(0,0,0,0.6);filter:progid:DXImageTransform.Microsoft.gradient(startColorstr=#99000000, endColorstr=#99000000);-ms-filter: "progid:DXImageTransform.Microsoft.gradient(startColorstr=#99000000, endColorstr=#99000000)";color: white;font: 10px arial, san serif;text-align: left;white-space: nowrap;padding: 5px;border: 1px solid white;z-index: 10000;}.jqsfield { color: white;font: 10px arial, san serif;text-align: left;}</style><style class="darkreader darkreader--sync" media="screen"></style></head>
+
+<body>
+
+	<!-- Preloader - style you can find in spinners.css -->
+	<div class="preloader" style="display: none;">
+		<div class="lds-ripple">
+			<div class="lds-pos"></div>
+			<div class="lds-pos"></div>
+		</div>
+	</div>
+
+    <div id="wrap" class="wrap">
+        <div class="skip_nav"> <a href="#content" class="go_content">Go to Content</a> <a href="#gnbmu" class="go_gnb">Go to Menu</a> </div>
+    </div>
+
+	<!-- Main wrapper - style you can find in pages.scss -->
+	<div id="main-wrapper" class="ebm sub" data-layout="horizontal" data-navbarbg="skin6" data-sidebartype="full" data-boxed-layout="boxed">
+		<div class="ttop-gap"></div>
+
+		<!-- Topbar header - style you can find in pages.scss -->
+		
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"><style class="darkreader darkreader--sync" media="screen"></style>
+<style>
+<!--
+.dropdown-submenu {
+  position: relative;
+}
+
+.dropdown-submenu a::after {
+  transform: rotate(-90deg);
+  position: absolute;
+  right: 6px;
+  top: .8em;
+}
+
+.dropdown-submenu .dropdown-menu {
+  top: 0;
+  left: 100%;
+  margin-left: .1rem;
+  margin-right: .1rem;
+}
+-->
+</style><style class="darkreader darkreader--sync" media="screen"></style>
+	<script type="text/javascript">
+
+		$(document).ready(function(){
+			$('.dropdown-menu a.dropdown-toggle').on('click', function(e) {
+				  if (!$(this).next().hasClass('show')) {
+				    $(this).parents('.dropdown-menu').first().find('.show').removeClass("show");
+				  }
+				  var $subMenu = $(this).next(".dropdown-menu");
+				  $subMenu.toggleClass('show');
+
+
+				  $(this).parents('a.nav-item.dropdown.show').on('hidden.bs.dropdown', function(e) {
+				    $('.dropdown-submenu .show').removeClass("show");
+				  });
+
+
+				  return false;
+				});
+		});
+
+		$(function(){
+
+		
+			$("#header_my_B_logOut").click(function(){
+				header.logout();
+			});
+
+			$("#header_my_B_profile").click(function(){
+				header.popMyInfo();
+			});
+
+			
+			$("#header_my_B_taxpayer").click(function(){
+				header.popMyTaxpayer();
+			});
+			
+
+			$("#header_my_B_changepassword").click(function(){
+				header.popChangePassword();
+			});
+
+			
+
+			$("#header_B_service").click(function(){
+				header.popService();
+			});
+
+			$("#inlineFormCustomSelect").change(function(){
+				location.href=$(this).val();
+			});
+
+		
+
+		$("#header_B_email").click(function(){
+			header.sendEmail();
+		});
+
+
+		
+
+			$("#header_B_notice").click(function(){
+				header.popNotice();
+			});
+		
+			$("#header_B_message").click(function(){
+				header.getMessage();
+			});
+		
+
+		});
+
+		var header = {
+			locale : function(val){
+				var url = location.pathname;
+				var params = 'bhfId=&amp;invcNo=&amp;curRcptNo=';
+
+				if(params != ""){
+					params = params.replace(/&amp;/gi, "&");
+				}
+
+				var html = new Array();
+
+				html.push("<form action=\""+url+"\" method=\"post\">");
+				html.push("<input type=\"hidden\" name=\"locale\" value=\""+ val +"\" />");
+
+				var paramArr = params.split("&");
+				var param, paramName, paramValue;
+
+				if(paramArr.length > 0){
+					for(var i=0; i<paramArr.length; i++){
+						param = paramArr[i].split("=");
+						paramName = param[0];
+						paramValue = param[1];
+						if(paramName != "locale")	html.push("<input type=\"hidden\" name=\"" + paramName + "\" value=\""+ paramValue +"\" />");
+					}
+				}
+
+				html.push("</form>");
+
+				if(val != ""){
+					$(html.join('')).appendTo('body').submit();
+				}
+
+			}
+
+			,sendEmail : function(){
+				var options = {
+						url : "/sendEmail",
+						data : {},
+						done : function(data){
+							msg.success("메일", "전송되었습니다.");
+						}
+					};
+					ajax.call(options);
+
+			}
+
+			
+			
+			,popService : function(){
+				pop.open("popupService"
+						, "Service request"
+						, "/main/service/popupServiceType"
+						, "M"	//Size
+						, ""	//Multi Y/N
+						, ""	//CallBack Function Name
+						, {}
+				);
+			}
+			,logout : function(){
+				location.href="/basic/login/logoutProc";
+			}
+			,popMyInfo : function(){
+				pop.open("popupMyProfile"
+						, "Amend Taxpayer Profile"
+						, "/main/my/popupMyProfile"
+						, "L"	//Size
+						, ""	//Multi Y/N
+						, ""	//CallBack Function Name
+						, {}
+				);
+			}
+			
+			,popMyTaxpayer : function(){
+				pop.open("popupMyTaxpayer"
+						, "Taxpayer Profile"
+						, "/main/my/popupMyTaxpayer"
+						, "XL"	//Size
+						, ""	//Multi Y/N
+						, ""	//CallBack Function Name
+						, {}
+				);
+			}
+			
+			,popChangePassword : function(){
+				pop.open("popupChangePassword"
+						, "Password change"
+						, "/main/my/popupChangePassword"
+						, "M"	//Size
+						, ""	//Multi Y/N
+						, ""	//CallBack Function Name
+						, {}
+				);
+			}
+
+			
+			
+			,popNotice : function(){
+				pop.open('popupNotice'
+						, 'Notice'
+						, '/main/notice/popupNotice'
+						, 'XL'
+						, ''
+						, ''
+						, {}
+				);
+			}
+			
+			,getMessage : function(){
+
+				$("<form action=\"/main/message/indexMessages\" method=\"post\"><input type=\"hidden\" name=\"sysClsCd\" value=\"ebm\" /></form>").appendTo('body').submit();
+			}
+			
+			
+		};
+
+	</script>
+
+        <header class="topbar" data-navbarbg="skin6">
+            <nav class="navbar top-navbar navbar-expand-md navbar-light">
+                <div class="navbar-header" data-logobg="skin6">
+                    <!-- This is for the sidebar toggle which is visible on mobile only -->
+                    <a class="nav-toggler waves-effect waves-light d-block d-md-none" href="javascript:void(0)" style=""><i class="ti-menu ti-close"></i></a>
+
+                    <!-- Logo -->
+                    <a class="navbar-brand" href="/indexMain">
+                        <!-- Logo icon -->
+                        <b class="logo-icon">
+                            <!--You can put here icon as well // <i class="wi wi-sunset"></i> //-->
+                            <!-- Dark Logo icon -->
+                            <img src="/assets/images/logo.jpg" alt="eTIMS Taxpayer Portal" class="dark-logo">
+                        </b>
+                        <!--End Logo icon -->
+                    </a>
+                    <!-- End Logo -->
+
+
+                    <!-- Toggle which is visible on mobile only -->
+                    <a class="topbartoggler d-block d-md-none waves-effect waves-light" href="javascript:void(0)" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation"><i class="ti-more"></i></a>
+                </div>
+
+                <!-- End Logo -->
+                <div class="navbar-collapse collapse" id="navbarSupportedContent" data-navbarbg="skin6">
+
+                    <!-- toggle and nav items -->
+                    <div class="navbar-nav float-left mr-auto">
+
+                    	
+                        <div class="button-group toptab-btn">
+                        
+                        	
+                            <a class="btn btn-lg btn-myrra active" href="/app/ebm/indexMain" role="button"><i class="fas fa-sm ebm"></i> &nbsp;eTIMS Menu</a>
+                            
+                        
+                        </div>
+                        
+
+
+                        
+
+                        <div class="button-group top-specialbtn">
+                        	
+                        	
+	                            <a class="btn btn-lg btn-myrra" id="header_B_message">
+	                            	<span class="badge" id="header_message_cfmdtCnt">0</span>
+	                            	<i class="fas fa-comment-dots"></i>
+	                            </a>
+                            
+                            
+                        	
+                        </div>
+                        
+                    </div>
+
+                    <!-- Right side toggle and nav items -->
+                    <ul class="navbar-nav float-right ttop-area">
+
+<!--                     	<li class="nav-item"> -->
+
+<!--                         </li> -->
+
+
+						
+                        <li class="nav-item welcome">
+                            <span class="">Welcome, Quality Outsource Solution Limited
+                            	(P051621945B)
+                            	
+                            </span>
+                        </li>
+                        
+
+<!--                        	<li class="nav-item"> -->
+<!--                             <a class="btn btn-rounded btn-block btn-sm btn-warning" href="#" id="header_B_email" role="button" data-toggle="modal" data-backdrop="static" data-target="#popupEmail"><i class="fas fa-volume-down" aria-hidden="true"></i> Email Test</a> -->
+<!--                         </li> -->
+						
+                       	<li class="nav-item">
+                            <a class="btn btn-rounded btn-block btn-sm btn-warning" href="#" id="header_B_notice" role="button" data-toggle="modal" data-backdrop="static" data-target="#popupNotice"><i class="fas fa-volume-down" aria-hidden="true"></i> <label class="h_title">Notice</label></a>
+                        </li>
+
+                        
+
+						
+                        <!-- User profile and search -->
+                        <li class="nav-item">
+                            <a class="btn btn-rounded btn-block btn-sm btn-success" href="/main/signup/indexLearnMoreIn" target="_blank" role="button"><i class="fas fa-paste"></i> <label class="h_title">eTIMS User Guide</label></a>
+                        </li>
+                       	<li class="nav-item">
+                            <a class="btn btn-rounded btn-block btn-sm btn-success" href="#" id="header_B_service" role="button" data-toggle="modal" data-backdrop="static" data-target="#popupService"><i class="fas fa-paste" aria-hidden="true"></i> <label class="h_title">Service request</label></a>
+                        </li>
+
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle text-muted waves-effect waves-dark pro-pic" href="" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><img src="/assets/images/user.jpg" alt="user" class="rounded-circle" width="31"></a>
+                            <div class="dropdown-menu dropdown-menu-right user-dd animated flipInY">
+                                <span class="with-arrow"><span class="bg-primary"></span></span>
+                                <div class="d-flex no-block align-items-center p-15 bg-primary text-white m-b-10">
+                                    <div class=""><img src="/assets/images/user.jpg" alt="user" class="img-circle" width="60"></div>
+                                    <div class="m-l-10">
+                                        <h4 class="m-b-0">Quality Outsource Solution Limited</h4>
+                                        <p class=" m-b-0">QOSOLUTION@GMAIL.COM</p>
+                                    </div>
+                                </div>
+                                <a class="dropdown-item" href="javascript:void(0)" id="header_my_B_profile" data-toggle="modal" data-backdrop="static" data-target="#popupMyProfile"><i class="ti-user m-r-5 m-l-5"></i> Amend Taxpayer Profile</a>
+                                
+                                <a class="dropdown-item" href="javascript:void(0)" id="header_my_B_taxpayer" data-toggle="modal" data-backdrop="static" data-target="#popupMyTaxpayer"><i class="ti-user m-r-5 m-l-5"></i> Taxpayer Profile</a>
+                                
+                                <a class="dropdown-item" href="javascript:void(0)" id="header_my_B_changepassword" data-toggle="modal" data-backdrop="static" data-target="#popupChangePassword"><i class="ti-wallet m-r-5 m-l-5"></i> Password change</a>
+								<a class="dropdown-item" href="/main/my/indexMyMenu" id="header_my_B_menu"><i class="ti-settings m-r-5 m-l-5"></i> My menu management</a>
+								
+
+                                <a class="dropdown-item" href="/main/my/indexMyReceipt" id="header_my_B_receipt"><i class="ti-search m-r-5 m-l-5"></i> My Receipt</a>
+
+                                <a class="dropdown-item" href="/main/device/indexDeviceManagement" id="header_my_B_deviceManage"><i class="ti-settings m-r-5 m-l-5"></i> Device Management</a>
+
+                                <div class="dropdown-divider"></div>
+                                <a class="dropdown-item" href="javascript:void(0)" id="header_my_B_logOut"><i class="fa fa-power-off m-r-5 m-l-5"></i> Log out</a>
+                            </div>
+                        </li>
+                        <!-- User profile and search -->
+						
+
+                        <!-- create new -->
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown2" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                              <i class="flag-icon flag-icon-gb"></i>
+                            </a>
+                            <div class="dropdown-menu dropdown-menu-right  animated bounceInDown" aria-labelledby="navbarDropdown2">
+                            	
+                                <a class="dropdown-item" href="javascript:header.locale('en_GB');">
+                                	<i class="flag-icon flag-icon-gb"></i> English
+                                </a>
+                            	
+                            </div>
+                        </li>
+
+						
+                        <!-- Mymenu -->
+                        <li class="nav-item mymenu">
+                            <div class="form-group">
+                                <select class="custom-select col-12" id="inlineFormCustomSelect" title="My Menu">
+                                    <option selected="">MyMenu</option>
+                                    
+                                </select>
+                            </div>
+                        </li>
+						
+                    </ul>
+
+                </div>
+            </nav>
+        </header>
+
+		<!-- End Topbar header -->
+
+		<!-- Left Sidebar - style you can find in sidebar.scss  -->
+		
+
+
+
+
+
+
+
+
+
+
+<script type="text/javascript">
+</script>
+        <aside class="left-sidebar" data-sidebarbg="skin1">
+            <!-- Sidebar scroll-->
+            <div class="scroll-sidebar">
+                <!-- Sidebar navigation-->
+                <nav class="sidebar-nav" id="gbnmu">
+                    <ul id="sidebarnav">
+                        <!-- Mobile Tab Button -->
+						<div class="button-group toptab-btn-mobile">
+	                    	
+	                    	
+                            <a class="btn btn-lg btn-myrra active" href="/app/ebm/indexMain" role="button"><i class="fas fa-sm fa-university"></i> &nbsp;eTIMS Menu</a>
+							
+                        	
+                        	
+                            <a class="btn btn-lg btn-myrra" href="/main/message/indexMessages" role="button"><i class="fas fa-comment-dots"></i><span class="badge">0</span></a>
+                            
+                        </div>
+                        <!-- /. Mobile Tab Button -->
+
+						
+                        
+							
+								
+		                        	
+			                        	
+			                        		
+			                        	<li class="sidebar-item ">
+			                        	
+				                        <a class="sidebar-link has-arrow waves-effect waves-dark" href="javascript:void(0)" aria-expanded="false"><span class="hide-menu">Item Management</span></a>
+		                        	
+		                        	
+
+									
+
+									
+		                        
+		                        	
+		                        	
+			                        	
+				                            <ul aria-expanded="false" class="collapse first-level">
+										
+				                                <li class="sidebar-item"><a href="/app/ebm/item/indexItemClass" class="sidebar-link "><span class="hide-menu">Search item classification</span></a></li>
+		                        	
+
+									
+
+									
+		                        
+		                        	
+		                        	
+			                        	
+				                                <li class="sidebar-item"><a href="/app/ebm/item/regist/indexRegItem" class="sidebar-link "><span class="hide-menu">Search registered item</span></a></li>
+		                        	
+
+									
+
+									
+		                        
+		                        	
+		                        	
+			                        	
+				                                <li class="sidebar-item"><a href="/app/ebm/cust/regist/indexCustomer" class="sidebar-link end"><span class="hide-menu">Customer Management</span></a></li>
+		                        	
+
+									
+
+									
+		                        
+		                        	
+			                        	
+			                        		
+		                        			</ul>
+		                        		</li>
+			                        		
+			                        	<li class="sidebar-item active">
+			                        	
+				                        <a class="sidebar-link has-arrow waves-effect waves-dark" href="javascript:void(0)" aria-expanded="false"><span class="hide-menu">Transaction Management</span></a>
+		                        	
+		                        	
+
+									
+
+									
+		                        
+		                        	
+		                        	
+			                        	
+				                            <ul aria-expanded="false" class="collapse first-level">
+										
+				                                <li class="sidebar-item"><a href="/app/ebm/trns/sales/indexTrnsSalesInvoice" class="sidebar-link "><span class="hide-menu">Sales by invoice</span></a></li>
+		                        	
+
+									
+
+									
+		                        
+		                        	
+		                        	
+			                        	
+				                                <li class="sidebar-item"><a href="/app/ebm/trns/sales/indexTrnsSalesItems" class="sidebar-link "><span class="hide-menu">Sales by item</span></a></li>
+		                        	
+
+									
+
+									
+		                        
+		                        	
+		                        	
+			                        	
+				                                <li class="sidebar-item"><a href="/app/ebm/trns/sales/indexTrnsSalesBuyer" class="sidebar-link "><span class="hide-menu">Sales by buyer</span></a></li>
+		                        	
+
+									
+
+									
+		                        
+		                        	
+		                        	
+			                        	
+				                                <li class="sidebar-item"><a href="/app/ebm/trns/purchases/indexTrnsPurchasesInvoice" class="sidebar-link "><span class="hide-menu">Purchase by invoice</span></a></li>
+		                        	
+
+									
+
+									
+		                        
+		                        	
+		                        	
+			                        	
+				                                <li class="sidebar-item"><a href="/app/ebm/trns/purchases/indexTrnsPurchasesItem" class="sidebar-link "><span class="hide-menu">Purchase by item</span></a></li>
+		                        	
+
+									
+
+									
+		                        
+		                        	
+		                        	
+			                        	
+				                                <li class="sidebar-item"><a href="/app/ebm/trns/purchases/indexTrnsPurchasesSupply" class="sidebar-link "><span class="hide-menu">Purchase by supplier</span></a></li>
+		                        	
+
+									
+
+									
+		                        
+		                        	
+		                        	
+			                        	
+				                                <li class="sidebar-item"><a href="/app/ebm/trns/sales/indexTrnsSalesReceipt" class="sidebar-link end"><span class="hide-menu">Sales Receipt</span></a></li>
+		                        	
+
+									
+
+									
+		                        
+		                        	
+			                        	
+			                        		
+		                        			</ul>
+		                        		</li>
+			                        		
+			                        	<li class="sidebar-item ">
+			                        	
+				                        <a class="sidebar-link has-arrow waves-effect waves-dark" href="javascript:void(0)" aria-expanded="false"><span class="hide-menu">VAT Reports</span></a>
+		                        	
+		                        	
+
+									
+
+									
+		                        
+		                        	
+		                        	
+			                        	
+				                            <ul aria-expanded="false" class="collapse first-level">
+										
+				                                <li class="sidebar-item"><a href="/app/ebm/report/indexSalesReport" class="sidebar-link "><span class="hide-menu">Sales report</span></a></li>
+		                        	
+
+									
+
+									
+		                        
+		                        	
+		                        	
+			                        	
+				                                <li class="sidebar-item"><a href="/app/ebm/report/indexPurchaseReport" class="sidebar-link "><span class="hide-menu">Purchase report</span></a></li>
+		                        	
+
+									
+
+									
+		                        
+		                        	
+		                        	
+			                        	
+				                                <li class="sidebar-item"><a href="/app/ebm/report/indexVatImportReport" class="sidebar-link end"><span class="hide-menu">VAT importation</span></a></li>
+		                        	
+
+									
+
+									
+		                        
+		                        	
+			                        	
+			                        		
+		                        			</ul>
+		                        		</li>
+			                        		
+			                        	<li class="sidebar-item ">
+			                        	
+				                        <a class="sidebar-link has-arrow waves-effect waves-dark" href="javascript:void(0)" aria-expanded="false"><span class="hide-menu">User Support</span></a>
+		                        	
+		                        	
+
+									
+
+									
+		                        
+		                        	
+		                        	
+			                        	
+				                            <ul aria-expanded="false" class="collapse first-level">
+										
+				                                <li class="sidebar-item"><a href="/app/ebm/bbs/indexBbsNotice" class="sidebar-link "><span class="hide-menu">Notice</span></a></li>
+		                        	
+
+									
+
+									
+		                        
+		                        	
+		                        	
+			                        	
+				                                <li class="sidebar-item"><a href="/app/ebm/bbs/indexBbsOnlineManual" class="sidebar-link "><span class="hide-menu">Manual</span></a></li>
+		                        	
+
+									
+
+									
+		                        
+		                        	
+		                        	
+			                        	
+				                                <li class="sidebar-item"><a href="/app/ebm/ewacs/indexEwacsWarning" class="sidebar-link end"><span class="hide-menu">Warning </span></a></li>
+		                        	
+
+									
+		                        			</ul>
+		                        		</li>
+									
+
+									
+		                        
+							
+							
+						
+                    </ul>
+                </nav>
+                <!-- End Sidebar navigation -->
+            </div>
+            <!-- End Sidebar scroll-->
+        </aside>
+		<!-- End Left Sidebar - style you can find in sidebar.scss  -->
+
+		<!-- Page wrapper  -->
+		<div class="page-wrapper" style="display: block;">
+
+			<!-- Bread crumb and right sidebar toggle -->
+			
+
+
+
+
+
+
+
+
+
+
+
+			
+			<div class="page-breadcrumb">
+                <div class="align-self-center">
+                    <h4 class="page-title">Sales Receipt</h4>
+                    <div class="d-flex align-items-center">
+                        <nav aria-label="breadcrumb">
+                            <ol class="breadcrumb">
+                                <li class="breadcrumb-item">HOME</li>
+
+                                
+                                	<li class="breadcrumb-item " aria-current="page">eTIMS Menu</li>
+                                
+                                	<li class="breadcrumb-item " aria-current="page">Transaction Management</li>
+                                
+                                	<li class="breadcrumb-item active" aria-current="page">Sales Receipt</li>
+                                
+
+                            </ol>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+             
+			<!-- End Bread crumb and right sidebar toggle -->
+
+
+			<!-- Container fluid  -->
+			<div class="container-fluid" id="content">
+
+				<div class="row">
+
+					<!-- Left Menu -->
+					
+
+
+
+
+
+
+
+
+
+
+
+			
+			<div class="leftmu-section col-lg-2">
+				
+					
+				    <div class="submutit">Transaction Management</div>
+					
+					
+
+					
+
+					
+				
+					
+					
+						
+						<ul>
+						
+						<li class="">
+							<a href="/app/ebm/trns/sales/indexTrnsSalesInvoice">
+								<i class="fas fa-angle-right"></i> Sales by invoice
+							</a>
+						</li>
+					
+
+					
+
+					
+				
+					
+					
+						
+						<li class="">
+							<a href="/app/ebm/trns/sales/indexTrnsSalesItems">
+								<i class="fas fa-angle-right"></i> Sales by item
+							</a>
+						</li>
+					
+
+					
+
+					
+				
+					
+					
+						
+						<li class="">
+							<a href="/app/ebm/trns/sales/indexTrnsSalesBuyer">
+								<i class="fas fa-angle-right"></i> Sales by buyer
+							</a>
+						</li>
+					
+
+					
+
+					
+				
+					
+					
+						
+						<li class="">
+							<a href="/app/ebm/trns/purchases/indexTrnsPurchasesInvoice">
+								<i class="fas fa-angle-right"></i> Purchase by invoice
+							</a>
+						</li>
+					
+
+					
+
+					
+				
+					
+					
+						
+						<li class="">
+							<a href="/app/ebm/trns/purchases/indexTrnsPurchasesItem">
+								<i class="fas fa-angle-right"></i> Purchase by item
+							</a>
+						</li>
+					
+
+					
+
+					
+				
+					
+					
+						
+						<li class="">
+							<a href="/app/ebm/trns/purchases/indexTrnsPurchasesSupply">
+								<i class="fas fa-angle-right"></i> Purchase by supplier
+							</a>
+						</li>
+					
+
+					
+
+					
+				
+					
+					
+						
+						<li class="active">
+							<a href="/app/ebm/trns/sales/indexTrnsSalesReceipt">
+								<i class="fas fa-angle-right"></i> Sales Receipt
+							</a>
+						</li>
+					
+
+					
+					</ul>
+					
+
+					
+				
+			</div>
+
+
+					<!-- /. Left Menu -->
+
+					<!-- Right Contents -->
+					<div class="rightcontents-section col-lg-10">
+						
+
+
+
+
+
+
+
+
+
+
+<script type="text/javascript" src="/assets/libs/jquery.repeater/jquery.repeater.min.js" charset="utf-8"></script>
+<script type="text/javascript" src="/assets/extra-libs/jquery.repeater/repeater-init.js" charset="utf-8"></script>
+<script type="text/javascript" src="/assets/extra-libs/jquery.repeater/dff.js" charset="utf-8"></script>
+<script type="text/javascript">
+var decimalYn = true;
+var decimalPlaces = 2;
+var commaYn = true;
+
+$(document).ready(function(){
+	$.validationEngine.defaults.promptPosition = 'topLeft';
+	validate.set("trnsSalesReceipt_I_FM");
+});
+
+$(function(){
+	$(".form-body").on("click",".btnTaxPayerItemPopup", function(){
+		 saleTaxPeyerItemList.popup($(".btnTaxPayerItemPopup").index(this));
+	});
+	$(".form-body").on("keydown" , ".onlyDecimalNumber", function(event) {
+		evt.keydownNumber(event, decimalYn);
+	}).on("keyup" , ".onlyDecimalNumber", function(event) {
+		var tarName = $(this).attr("name");
+		var divIdx = $("input[name='"+tarName+"']").index(this);
+
+		evt.keyupNumber(event, decimalPlaces, commaYn, function(){
+		saleTaxPeyerItemList.autoSum(divIdx, decimalPlaces);
+		});
+	}).on("paste" , ".onlyDecimalNumber", function() {
+		var tarName = $(this).attr("name");
+		var divIdx = $("input[name='"+tarName+"']").index(this);
+
+		evt.pasteNumber($(this), decimalPlaces, commaYn, function() {
+		saleTaxPeyerItemList.autoSum(divIdx, decimalPlaces);
+		});
+	});
+
+	$(".form-body").on("click", ".btnRowControl", function(){
+		if($(this).hasClass("btn-success") === true){
+			$.divClone = $(".form-body > div:last").clone().html();
+			$.newDiv = $("<div class='TrnsItem'>"+$.divClone+"</div>");
+
+			$(".form-body").append($.newDiv);
+
+			$(".qtyUnitCdSpan:last").text("");
+			$(".pkgUnitCdSpan:last").text("");
+
+			$(".form-body > div:last").find("input[type='hidden']").val("");
+			$(".form-body > div:last").find("input[name='prc']").attr("readOnly",true);
+
+		}else{
+			$(this).parents(".TrnsItem").remove();
+
+			saleTaxPeyerItemList.autoSum(0, decimalPlaces);
+		}
+
+		$.each($(".form-body > div"),function(idx,obj){
+			$(this).find("h6").text("#"+(idx+1));
+
+			$(this).find("#btnDivRowCn").empty();
+
+			if($(".form-body > div").length != (idx+1)){
+				$(this).find("#btnDivRowCn").append("<button class=\"btn btn-danger btnRowControl\" type=\"button\" ><i class=\"fa fa-minus\"></i></button>");
+			}else{
+				var htmlTag = "<button class=\"btn btn-success btnRowControl\" type=\"button\" ><i class=\"fa fa-plus\"></i></button>";
+
+				if($(".form-body > div").length != 1){
+					htmlTag += " <button class=\"btn btn-danger btnRowControl\" type=\"button\" ><i class=\"fa fa-minus\"></i></button>";
+				}
+
+				$(this).find("#btnDivRowCn").append(htmlTag);
+			}
+		});
+
+	});
+	
+	$('#custTin').on('input', function() {
+	    // Get current value and capitalize it
+	    var currentValue = $(this).val().toUpperCase();
+	    // Set the capitalized value back to the input field
+	    $(this).val(currentValue);
+	  });
+
+});
+
+var saleTaxPeyerItemList = {
+	popup : function(divIdx){
+		pop.open('taxPayerItemPopup'
+				, 'Search registered item'
+				, '/app/ebm/trns/popup/popupTrnsSalesTaxPayerItem'
+				, 'XL'
+				, 'N'
+				, "saleTaxPeyerItemList.cbTaxPeyerItem"
+				, {divIdx : divIdx});
+
+
+	}
+	, cbTaxPeyerItem : function(data){
+		 $("input[name='itemClsCd']:eq("+data.divIdx+")").val(data.itemClsCd);
+		 $("input[name='itemCd']:eq("+data.divIdx+")").val(data.itemCd);
+		 $("input[name='itemNm']:eq("+data.divIdx+")").val(data.itemNm);
+		 $("select[name='taxTyCd']:eq("+data.divIdx+")").val(data.taxTyCd);
+		 $("input[name='taxTyRate']:eq("+data.divIdx+")").val(data.taxTyRate);
+		 $("input[name='qtyUnitCd']:eq("+data.divIdx+")").val(data.qtyUnitCd);
+		 $("input[name='pkgUnitCd']:eq("+data.divIdx+")").val(data.pkgUnitCd);
+		 $("input[name='bcd']:eq("+data.divIdx+")").val(data.bcd);
+		 $("input[name='prc']:eq("+data.divIdx+")").val(format.num(data.dftPrc));
+
+		 $("input[name='prc']:eq("+data.divIdx+")").attr("readOnly",false);
+
+		 $(".qtyUnitCdSpan:eq("+data.divIdx+")").text(data.qtyUnitCd);
+		 $(".pkgUnitCdSpan:eq("+data.divIdx+")").text(data.pkgUnitCd);
+
+		 if($("input[name='qty']:eq("+data.divIdx+")").val() != ""){
+			 saleTaxPeyerItemList.autoSum(data.divIdx, decimalPlaces);
+		 }
+		 
+		 $("input[name='dcRt']:eq("+data.divIdx+")").attr("readOnly",false);
+	}
+	, autoSum : function(divIdx, places){
+
+		$("input[name='totSplyAmt']").val("0");
+		$("input[name='sumTotAmt']").val("0");
+		$("input[name='totTaxAmt']").val("0");
+		$("input[name='totTaxblAmt']").val("0");
+
+		$("input[name='splyAmt']:eq("+divIdx+")").val("0");
+		$("input[name='taxblAmt']:eq("+divIdx+")").val("0");
+		$("input[name='taxAmt']:eq("+divIdx+")").val("0");
+		$("input[name='totAmt']:eq("+divIdx+")").val("0");
+		
+		/* $("input[name='dcAmt']:eq("+divIdx+")").val("0"); */
+		/* $("input[name='dcRate']:eq("+divIdx+")").val("0"); */
+
+		$("#taxTypeListDiv").hide();
+		$("#taxTypeListDiv > div").hide();
+		$("#taxTypeListDiv").find("input:not([name^='taxRt'])").val("0");
+		
+		/* $("#dcRate").on("input", function() {
+				$("input[name='qty']:eq("+divIdx+")").val("");
+			}); */
+		
+		/* Item Supply Price Logic */
+
+		if($("input[name='prc']:eq("+divIdx+")").val() != ""  && $("input[name='qty']:eq("+divIdx+")").val() != ""){
+			var prc = $("input[name='prc']:eq("+divIdx+")").val().replace(/[,]/g, '');
+			var qty = $("input[name='qty']:eq("+divIdx+")").val().replace(/[,]/g, '');
+			var dcRt = $("input[name='dcRt']:eq("+divIdx+")").val().replace(/[,]/g, '');
+
+			var unitDcAmt = evt.getMathRound(Number(prc) * Number(dcRt) / 100, places);
+			var dcAmt = evt.getMathRound(Number(unitDcAmt) * Number(qty), places);
+			var splyAmt = evt.getMathRound((Number(prc) * Number(qty)) - Number(dcAmt) ,places);		
+			
+
+			$("input[name='splyAmt']:eq("+divIdx+")").val(format.num(splyAmt));
+			$("input[name='dcAmt']:eq("+divIdx+")").val(format.num(dcAmt));
+
+			$(".dcRate").on("input", function() {
+				$("input[name='qty']:eq("+divIdx+")").val("");
+			});
+
+			/*  Item VAT Logic  */
+
+			//var taxAmt = evt.getMathRound(splyAmt * Number($("input[name='taxTyRate']:eq("+divIdx+")").val()) / 100, places);
+
+			if ($("input[name='taxTyRate']:eq("+divIdx+")").val() == 16){
+				var taxAmt = evt.getMathRound(splyAmt * Number($("input[name='taxTyRate']:eq("+divIdx+")").val()) / 116, places); /* Modify kirui 2023.01.18 */
+			}
+			else if ($("input[name='taxTyRate']:eq("+divIdx+")").val() ==8){
+				var taxAmt = evt.getMathRound(splyAmt * Number($("input[name='taxTyRate']:eq("+divIdx+")").val()) / 108, places); /* Modify kirui 2023.01.18 */
+			}
+			else if ($("input[name='taxTyRate']:eq("+divIdx+")").val() ==0){
+				var taxAmt = evt.getMathRound(splyAmt * Number($("input[name='taxTyRate']:eq("+divIdx+")").val()) / 100, places); /* Modify kirui 2023.01.18 */
+			}
+			$("input[name='taxAmt']:eq("+divIdx+")").val(format.num(taxAmt));
+			
+			/*  Item Taxable Supply Price Logic  */
+			var txblAmt = evt.getMathRound(Number(splyAmt) - Number(taxAmt) ,places);
+			$("input[name='taxblAmt']:eq("+divIdx+")").val(format.num(txblAmt));
+
+			/*  Item Total Price Logic  */
+
+			//var totAmt = evt.getMathRound(splyAmt + taxAmt, places);
+			var totAmt = evt.getMathRound(splyAmt, places);
+			$("input[name='totAmt']:eq("+divIdx+")").val(format.num(totAmt));
+
+		}
+
+		/*  Total Supply Price Logic  */
+
+		var totSplyAmt = 0;
+
+		$.each($(".form-body > div"),function(idx,obj){
+			totSplyAmt += Number($(this).find("input[name='splyAmt']").val().replace(/[,]/g, ''));
+		});
+		$("input[name='totSplyAmt']").val(format.num(totSplyAmt));		
+		
+
+		/*  Total Taxable Amount && Total Tax Amount && Total Amount   Logic  */
+		var sumTotAmt = 0;
+		var totTaxAmt = 0;
+		var totTaxblAmt = 0;
+
+		$.each($(".form-body > div"),function(idx,obj){
+			sumTotAmt += Number($(this).find("input[name='totAmt']").val().replace(/[,]/g, ''));
+			totTaxAmt += Number($(this).find("input[name='taxAmt']").val().replace(/[,]/g, ''));
+			totTaxblAmt += Number($(this).find("input[name='taxblAmt']").val().replace(/[,]/g, ''));
+		});
+
+		$("input[name='sumTotAmt']").val(format.num(sumTotAmt));
+		$("input[name='totTaxAmt']").val(format.num(totTaxAmt));
+		$("input[name='totTaxblAmt']").val(format.num(totTaxblAmt));
+		
+
+		/* Type Sum*/
+
+		var taxTypeList = [];
+
+		$.each($(".form-body > div"), function(idx,obj){
+			var addchk = true;
+
+			var taxType = $(this).find("select[name='taxTyCd']").val();
+
+			var taxAmt = Number($(this).find("input[name='taxAmt']").val().replace(/[,]/g, ''));
+
+			var taxblAmt = Number($(this).find("input[name='taxblAmt']").val().replace(/[,]/g, ''));
+
+			$.each(taxTypeList,function(idx2, taxObj){
+				if(taxObj.name == taxType){
+					addchk = false;
+					taxAmt += taxObj.taxAmt;
+					taxblAmt += taxObj.taxblAmt;
+					taxTypeList[idx2] = {name : taxType, taxAmt : taxAmt, taxblAmt :taxblAmt};
+				}
+			})
+			if(addchk && taxType != ""){
+				taxTypeList[taxTypeList.length] = {name : taxType, taxAmt : taxAmt, taxblAmt :taxblAmt};
+			}
+		});
+
+		if(taxTypeList.length > 0){
+			$("#taxTypeListDiv").show();
+
+			$.each(taxTypeList, function(idx, obj){
+				$("#taxTypeListDiv > #taxDiv"+obj.name).show();
+				$("input[name='taxblAmt"+obj.name+"']").val(format.num(obj.taxblAmt));
+				$("input[name='taxAmt"+obj.name+"']").val(format.num(obj.taxAmt));
+
+			});
+		}
+	}
+	, insertTrnsSalesReceipt : function(){
+		if(validate.check("trnsSalesReceipt_I_FM")){
+			msg.confirm("Sales Receipt", "Do you want to register?", function(){
+
+				$.each($("#trnsSalesReceipt_I_FM").find("input").not(".notComma"), function(index, elem){
+				      $(this).val($(this).val().replace(/[,]/g, ''));
+				});
+
+				$.each($("#trnsSalesReceipt_I_FM").find("select"), function(index, elem){
+					$(this).removeAttr("disabled");
+				});
+
+				var options = {
+					url : "/app/ebm/trns/sales/insertTrnsSalesReceipt",
+					data : $("#trnsSalesReceipt_I_FM").serialize(),
+					done : function(data){
+					    msg.success("Sales Receipt", "It is registered");
+						location.href="/app/ebm/trns/sales/indexTrnsSalesReceipt";
+					}
+				};
+				ajax.call(options);
+			});
+		}
+	}
+}
+
+$(function(){
+	$("#taxpayer_D_C_tin_btn").click(function(){
+		//Taxpayer Customer List
+		getCustomer.getcustomerDetails();
+	});
+});
+
+
+$(function(){
+	$("#btnTaxPayerCustomerPopup").click(function(){
+		getCustomer.getcustomerDetailsList($("#btnTaxPayerCustomerPopup").index(this));	    
+	});
+});
+
+var getCustomer = {
+		getcustomerDetailsList: function(divIdx){
+			pop.open('taxPayerCustomerPopup'
+					, 'Search registered Customer'
+					, '/app/ebm/trns/popup/taxpayerCustomerPopUp'
+					, 'XL'
+					, 'N'
+					, "getCustomer.customerDetails"
+					, {divIdx : divIdx});
+			
+		}
+		, customerDetails : function(data){
+			 $("input[name='custTin']:eq("+data.divIdx+")").val(data.custTin);
+			 $("input[name='custNm']:eq("+data.divIdx+")").val(data.custNm);
+			 $("input[name='custMblNo']:eq("+data.divIdx+")").val(data.custMblNo);			 
+		}
+		,getTaxpayerCustomerDetails : function(){
+			if($("#custTin").val() == ""){
+				msg.alert("Kindly input Customer pin");
+				return;
+			}
+			
+			var options = {
+					url : "/app/ebm/trns/sales/getCustomerData",
+					data : {custTin : $("#custTin").val(),tin : $("#tppin").val()},
+					done : function(data){
+						var base = data.base;	
+						//console.log(base);
+						$("#custTin").val(base.custTin);
+						$("#custMblNo").val(base.telNo);
+						$("#custNm").val(base.custNm);
+					}
+				};
+			ajax.call(options);
+			
+		}
+};
+
+
+</script>
+<script type="text/javascript">
+$(document).ready(function(){
+    // Attach event listener to contextmenu event
+    $(document).on("contextmenu", function(e){
+        // Prevent default behavior
+        e.preventDefault();
+    });
+});
+</script>
+<div class="row">
+    <div class="col-12">
+    <form class="form-horizontal r-separator " id="trnsSalesReceipt_I_FM">
+        <div class="card">
+            <div class="card-body">
+                <h4 class="card-title">Sale information</h4>
+            </div>
+            <hr class="m-t-0">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-sm-12 col-lg-6">
+                        <div class="form-group row">
+                            <label class="col-sm-4 text-right control-label col-form-label" for="custTin">Buyer PIN</label>
+                            <div class="col-sm-8 input-group">
+                            <input type="hidden" id="tppin" value="P051621945B" readonly="readonly">
+                                <input class="form-control validate[minSize[11], maxSize[11], custom[onlyLetterNumber], custom[tin]]" id="custTin" type="text" name="custTin" maxlength="11" value="" title="Buyer PIN">
+                                <div class="input-group-append">
+										
+										 <button class="btn btn-success input-group-append" id="btnTaxPayerCustomerPopup" type="button" title="search" data-toggle="modal" data-backdrop="static" data-target="#taxPayerCustomerPopup"><i class="ti-search"></i></button>
+									 </div>
+                            </div> 
+                        </div>
+                    </div>
+                    <div class="col-sm-12 col-lg-6">
+                        <div class="form-group row">
+                            <label class="col-sm-4 text-right control-label col-form-label" for="custNm">Buyer Name</label>
+                            <div class="col-sm-8">
+                                <input class="form-control validate[maxSize[60]] notComma" id="custNm" type="text" name="custNm" value="" title="Buyer Name">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                	<div class="col-sm-12 col-lg-6">
+                        <div class="form-group row">
+                            <label class="col-sm-4 text-right control-label col-form-label" for="custMblNo">Buyer Mobile No<span class="text-danger">*</span></label>
+                            <div class="col-sm-8">
+                                <input class="form-control validate[required, number, min[10]] onlyDecimalNumber" id="custMblNo" type="text" name="custMblNo" value="" title="Buyer Mobile No">
+                            </div>
+                        </div>
+                    </div>
+                	<div class="col-sm-12 col-lg-6">
+                        <div class="form-group row">
+                            <label class="col-sm-4 text-right control-label col-form-label" for="custMblFornNo">Buyer Foreigner No</label>
+                            <div class="col-sm-8">
+                                <input class="form-control validate[maxSize[100]] notComma" id="custMblFornNo" type="text" name="custMblFornNo" value="" title="Buyer Foreigner No">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body bg-light">
+                <div class="row">
+                    <div class="col-sm-12 col-lg-6">
+                        <div class="form-group row">
+                            <label class="col-sm-4 text-right control-label col-form-label" for="pmtTyCd">Payment Type<span class="text-danger">*</span></label>
+                            <div class="col-sm-8">
+                                 <select id="pmtTyCd" name="pmtTyCd" class="form-control validate[required]" title="Payment Type">
+					            	<option value="">--Select--</option><option value="01">CASH</option><option value="02">CREDIT</option><option value="03">CASH/CREDIT</option><option value="04">BANK CHEQUE</option><option value="05">DEBIT &amp; CREDIT CARD</option><option value="06">MOBILE MONEY</option><option value="07">OTHER</option>
+					            </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-12 col-lg-6">
+                    </div>                    
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-sm-12 col-lg-4">
+                        <div class="form-group row">
+                            <label class="col-sm-7 text-right control-label col-form-label">Total Supply Price</label>
+                            <div class="col-sm-5">
+                                <input class="form-control-plaintext" type="text" name="totSplyAmt" value="" readonly="readonly" title="Total Supply Price">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-12 col-lg-8">
+
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-sm-12 col-lg-4">
+                        <div class="form-group row">
+                            <label class="col-sm-7 text-right control-label col-form-label">Total Taxable Amount</label>
+                            <div class="col-sm-5">
+                                <input class="form-control-plaintext" type="text" name="totTaxblAmt" value="" readonly="readonly" title="Total Taxable Amount">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-12 col-lg-4">
+                        <div class="form-group row">
+                            <label class="col-sm-7 text-right control-label col-form-label">Total Tax Amount</label>
+                            <div class="col-sm-5">
+                                <input class="form-control-plaintext" type="text" name="totTaxAmt" value="" readonly="readonly" title="Total Tax Amount">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-12 col-lg-4">
+                        <div class="form-group row">
+                            <label class="col-sm-7 text-right control-label col-form-label">Total Amount</label>
+                            <div class="col-sm-5">
+                                <input class="form-control-plaintext" type="text" name="sumTotAmt" value="" readonly="readonly" title="Total Amount">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body bg-light" id="taxTypeListDiv" style="display: none;">
+            	
+                <div class="row" id="taxDivA">
+                    <div class="col-sm-12 col-lg-4">
+                        <div class="form-group row">
+                            <label class="col-sm-7 text-right control-label col-form-label">Tax-A Taxable Amount</label>
+                            <div class="col-sm-5">
+                                <input class="form-control-plaintext" type="text" name="taxblAmtA" value="" readonly="readonly" title="Tax-A Taxable Amount">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-12 col-lg-4">
+                        <div class="form-group row">
+                            <label class="col-sm-7 text-right control-label col-form-label">Tax-A Tax Amount</label>
+                            <div class="col-sm-5">
+                                <input class="form-control-plaintext" type="text" name="taxAmtA" value="" readonly="readonly" title="Tax-A Tax Amount">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-12 col-lg-4">
+                        <div class="form-group row">
+                            <label class="col-sm-7 text-right control-label col-form-label">Tax-A Rate</label>
+                            <div class="input-group col-sm-5">
+                                <input class="form-control-plaintext" name="taxRtA" type="text" value="0" readonly="readonly" style="text-align:right;" title="Tax-A Rate">
+                                <div class="input-group-append">
+                                    <span class="input-group-text">%</span> 
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row" id="taxDivB">
+                    <div class="col-sm-12 col-lg-4">
+                        <div class="form-group row">
+                            <label class="col-sm-7 text-right control-label col-form-label">Tax-B Taxable Amount</label>
+                            <div class="col-sm-5">
+                                <input class="form-control-plaintext" type="text" name="taxblAmtB" value="" readonly="readonly" title="Tax-B Taxable Amount">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-12 col-lg-4">
+                        <div class="form-group row">
+                            <label class="col-sm-7 text-right control-label col-form-label">Tax-B Tax Amount</label>
+                            <div class="col-sm-5">
+                                <input class="form-control-plaintext" type="text" name="taxAmtB" value="" readonly="readonly" title="Tax-B Tax Amount">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-12 col-lg-4">
+                        <div class="form-group row">
+                            <label class="col-sm-7 text-right control-label col-form-label">Tax-B Rate</label>
+                            <div class="input-group col-sm-5">
+                                <input class="form-control-plaintext" name="taxRtB" type="text" value="16" readonly="readonly" style="text-align:right;" title="Tax-B Rate">
+                                <div class="input-group-append">
+                                    <span class="input-group-text">%</span> 
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row" id="taxDivC">
+                    <div class="col-sm-12 col-lg-4">
+                        <div class="form-group row">
+                            <label class="col-sm-7 text-right control-label col-form-label">Tax-C Taxable Amount</label>
+                            <div class="col-sm-5">
+                                <input class="form-control-plaintext" type="text" name="taxblAmtC" value="" readonly="readonly" title="Tax-C Taxable Amount">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-12 col-lg-4">
+                        <div class="form-group row">
+                            <label class="col-sm-7 text-right control-label col-form-label">Tax-C Tax Amount</label>
+                            <div class="col-sm-5">
+                                <input class="form-control-plaintext" type="text" name="taxAmtC" value="" readonly="readonly" title="Tax-C Tax Amount">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-12 col-lg-4">
+                        <div class="form-group row">
+                            <label class="col-sm-7 text-right control-label col-form-label">Tax-C Rate</label>
+                            <div class="input-group col-sm-5">
+                                <input class="form-control-plaintext" name="taxRtC" type="text" value="0" readonly="readonly" style="text-align:right;" title="Tax-C Rate">
+                                <div class="input-group-append">
+                                    <span class="input-group-text">%</span> 
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row" id="taxDivE">
+                    <div class="col-sm-12 col-lg-4">
+                        <div class="form-group row">
+                            <label class="col-sm-7 text-right control-label col-form-label">Tax-E Taxable Amount</label>
+                            <div class="col-sm-5">
+                                <input class="form-control-plaintext" type="text" name="taxblAmtE" value="" readonly="readonly" title="Tax-E Taxable Amount">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-12 col-lg-4">
+                        <div class="form-group row">
+                            <label class="col-sm-7 text-right control-label col-form-label">Tax-E Tax Amount</label>
+                            <div class="col-sm-5">
+                                <input class="form-control-plaintext" type="text" name="taxAmtE" value="" readonly="readonly" title="Tax-E Tax Amount">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-12 col-lg-4">
+                        <div class="form-group row">
+                            <label class="col-sm-7 text-right control-label col-form-label">Tax-E Rate</label>
+                            <div class="input-group col-sm-5">
+                                <input class="form-control-plaintext" name="taxRtE" type="text" value="8" readonly="readonly" style="text-align:right;" title="Tax-E Rate">
+                                <div class="input-group-append">
+                                    <span class="input-group-text">%</span> 
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row" id="taxDivD">
+                    <div class="col-sm-12 col-lg-4">
+                        <div class="form-group row">
+                            <label class="col-sm-7 text-right control-label col-form-label">Tax-D Taxable Amount</label>
+                            <div class="col-sm-5">
+                                <input class="form-control-plaintext" type="text" name="taxblAmtD" value="" readonly="readonly" title="Tax-D Taxable Amount">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-12 col-lg-4">
+                        <div class="form-group row">
+                            <label class="col-sm-7 text-right control-label col-form-label">Tax-D Tax Amount</label>
+                            <div class="col-sm-5">
+                                <input class="form-control-plaintext" type="text" name="taxAmtD" value="" readonly="readonly" title="Tax-D Tax Amount">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-12 col-lg-4">
+                        <div class="form-group row">
+                            <label class="col-sm-7 text-right control-label col-form-label">Tax-D Rate</label>
+                            <div class="input-group col-sm-5">
+                                <input class="form-control-plaintext" name="taxRtD" type="text" value="0" readonly="readonly" style="text-align:right;" title="Tax-D Rate">
+                                <div class="input-group-append">
+                                    <span class="input-group-text">%</span> 
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+        </div>
+        <div class="col-lg-12">
+			<div class="card">
+				<hr>
+		        <div class="card-body">
+		        	<h4 class="card-title text-left">Sale item list</h4>
+		        </div>
+		        <hr>
+				<div class="form-body">
+					<div class="TrnsItem">
+						<div class="row">
+	                        <div class="col-md-6">
+	                            <div class="form-group">
+	                                <h6 class="card-title m-t-10 p-b-10">#1</h6>
+	                            </div>
+	                        </div>
+	                        <div class="col-md-6">
+	                            <div class="form-group text-right" id="btnDivRowCn">
+	                                <button class="btn btn-success btnRowControl" type="button"><i class="fa fa-plus"></i></button>
+	                            </div>
+	                        </div>
+	                    </div>
+						<div class="row">
+							<div class="col-md-2">
+								<div class="form-group">
+		                		<label class="control-label">Item name<span class="text-danger">*</span></label>
+			                		<div class="input-group mb-3">
+			                			<input type="hidden" name="itemClsCd" value="">
+			                			<input type="hidden" name="itemCd" value="">
+			                			<input type="hidden" name="bcd" value="">
+			    						<input class="form-control validate[required] notComma" aria-describedby="basic-addon1" type="text" name="itemNm" readonly="readonly" title="Item name">
+									    <div class="input-group-append">
+									        <button class="btn btn-success btnTaxPayerItemPopup" type="button" title="search" data-toggle="modal" data-backdrop="static" data-target="#taxPayerItemPopup"><i class="ti-search"></i></button>
+									    </div>
+									</div>
+								</div>
+		        			</div>
+		        			<div class="col-md-2">
+			    				<div class="form-group has-danger">
+						        	<label class="control-label">Package</label>
+						        	<input type="hidden" name="pkgUnitCd" value="">
+						        	<div class="input-group mb-3">
+		                                <input class="form-control form-control-danger validate[number, min[0]] onlyDecimalNumber" name="pkg" type="text" value="" title="Package">
+		                                <div class="input-group-append">
+		                                    <span class="input-group-text pkgUnitCdSpan"></span>
+		                                </div>
+		                            </div>
+						        </div>
+							</div>
+							<div class="col-md-2">
+			    				<div class="form-group has-danger">
+						        	<label class="control-label">Quantity<span class="text-danger">*</span></label>
+
+						        	<input type="hidden" name="qtyUnitCd" value="">
+						        	<div class="input-group mb-3">
+		                                <input class="form-control form-control-danger validate[required, number, min[0]] onlyDecimalNumber" name="qty" id="qty" type="text" value="" title="Quantity">
+		                                <div class="input-group-append">
+		                                    <span class="input-group-text qtyUnitCdSpan"></span>
+		                                </div>
+		                            </div>
+						        </div>
+							</div>
+							<div class="col-md-2">
+			    				<div class="form-group has-danger">
+						        	<label class="control-label">Unit price (VAT incl)<span class="text-danger">*</span></label>
+						        	<input class="form-control form-control-danger validate[required, number, min[0]] onlyDecimalNumber" name="prc" type="text" value="" readonly="readonly" title="Unit price (VAT incl)">
+
+						        </div>
+							</div>
+							<div class="col-md-2">
+			    				<div class="form-group has-danger">
+						        	<label class="control-label">Discount rate<span class="text-danger">*</span></label>
+						        	<input class="form-control form-control-danger validate[required, number, min[0], max[100]] dcRate" name="dcRt" type="text" readonly="readonly" value="0" title="Discount rate">
+						        </div>
+							</div>
+							<div class="col-md-2">
+			    				<div class="form-group has-danger">
+						        	<label class="control-label">Discount Amount</label>
+						        	<input class="form-control form-control-danger validate[number, min[0]]" name="dcAmt" type="text" value="" readonly="readonly" title="Discount Amount">
+						        </div>
+							</div>							
+						</div>
+						<div class="row">
+							<div class="col-md-3">
+			    				<div class="form-group has-danger">
+						        	<label class="control-label">Total Item Price</label>
+						        	<input class="form-control form-control-danger validate[number, min[0]]" name="splyAmt" type="text" value="" readonly="readonly" title="Supply Price">
+						        </div>
+							</div>
+							<div class="col-md-3">
+			    				<div class="form-group has-danger">
+						        	<label class="control-label">Taxable Supply Price</label>
+						        	<input class="form-control validate[number, min[0]]" name="taxblAmt" type="text" value="" readonly="readonly" title="Taxable Supply Price">
+						        </div>
+							</div>
+							<div class="col-md-2">
+			    				<div class="form-group has-danger">
+						        	<div class="form-group">
+		                                <label class="control-label">Tax type</label>
+		                                <input type="hidden" name="taxTyRate" value="">
+		                                <select tabindex="1" class="form-control custom-select" name="taxTyCd" disabled="disabled" title="Tax type">
+		                                    <option value="">--Select--</option><option value="A">A-Exempt</option><option value="B">B-VAT 16% </option><option value="C">C-Zero Rated</option><option value="E">E-VAT 8%</option><option value="D">D-Non VAT</option>
+		                                </select>
+		                            </div>
+						        </div>
+							</div>
+							<div class="col-md-3">
+			    				<div class="form-group has-danger">
+						        	<label class="control-label">VAT</label>
+						        	<input class="form-control form-control-danger validate[number, min[0]]" name="taxAmt" type="text" readonly="readonly" title="VAT">
+						        </div>
+							</div>
+							
+						        	<input class="form-control form-control-danger validate[number, min[0]]" name="totAmt" type="hidden" readonly="readonly" title="Total Item Price">
+						        <!-- </div>
+							</div> -->
+						</div>
+					<hr>
+	            	</div>
+	        	</div>
+	        	<div class="col-sm-12 col-lg-12">
+                        <div class="form-group row">
+                            <label class="col-sm-4 col-lg-2 text-right control-label col-form-label">Non-Fiscal Data</label>
+                            <div class="col-sm-8 col-lg-10">
+                            <input type="text" class="form-control validate[maxSize[2000]] notComma" name="remark" title="Non-Fiscal Data">
+                            </div>
+                        </div>
+                    </div>
+	        	
+	        	<div class="form-actions">
+	                <div class="card-body text-right">
+	                    <button class="btn btn-success" type="button" title="Save" onclick="saleTaxPeyerItemList.insertTrnsSalesReceipt();"><i class="fas fa-save"></i> Save </button>
+	                </div>
+	            </div>
+	            
+			</div>
+		</div>
+    </form></div>
+	
+</div>
+
+					</div>
+					<!-- /. Right Contents -->
+
+				</div>
+
+			</div>
+			<!-- End Container fluid  -->
+		</div>
+		<!-- End Page wrapper  -->
+
+		<!-- footer -->
+		<footer class="footer text-center footer-fullwidth">
+			All Rights Reserved by KRA.
+		</footer>
+		<!-- End footer -->
+
+	</div>
+	<!-- End Wrapper -->
+
+
+
+
+
+
+
+
+</body></html>

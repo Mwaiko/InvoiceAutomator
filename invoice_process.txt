@@ -1,0 +1,251 @@
+curl 'https://etims.kra.go.ke/app/ebm/trns/sales/trnsSalesReceiptList' \
+  -H 'Accept: text/html, */*; q=0.01' \
+  -H 'Accept-Language: en-GB,en-US;q=0.9,en;q=0.8' \
+  -H 'Connection: keep-alive' \
+  -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' \
+  -b 'JSESSIONID=44AE7C937869EEB79746437EDEFE3609; BIGipServer~k8sprd02~Shared~etims_portal_8080_etims_prod_etims_kra_go_ke=2517359626.36895.0000' \
+  -H 'Origin: https://etims.kra.go.ke' \
+  -H 'Referer: https://etims.kra.go.ke/app/ebm/trns/sales/indexTrnsSalesReceipt' \
+  -H 'Sec-Fetch-Dest: empty' \
+  -H 'Sec-Fetch-Mode: cors' \
+  -H 'Sec-Fetch-Site: same-origin' \
+  -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36' \
+  -H 'X-Requested-With: XMLHttpRequest' \
+  -H 'sec-ch-ua: "Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "Linux"' \
+  --data-raw 'page=1&dtDiv=D&startDt=11%2F03%2F2026&endDt=11%2F03%2F2026&invcNo=&rcptTyCd='
+
+  curl 'https://etims.kra.go.ke/app/ebm/trns/popup/popupTrnsSalesTaxPayerItem' \
+  -H 'Accept: text/html, */*; q=0.01' \
+  -H 'Accept-Language: en-GB,en-US;q=0.9,en;q=0.8' \
+  -H 'Connection: keep-alive' \
+  -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' \
+  -b 'JSESSIONID=44AE7C937869EEB79746437EDEFE3609; BIGipServer~k8sprd02~Shared~etims_portal_8080_etims_prod_etims_kra_go_ke=2517359626.36895.0000' \
+  -H 'Origin: https://etims.kra.go.ke' \
+  -H 'Referer: https://etims.kra.go.ke/app/ebm/trns/sales/indexTrnsSalesReceiptDetail' \
+  -H 'Sec-Fetch-Dest: empty' \
+  -H 'Sec-Fetch-Mode: cors' \
+  -H 'Sec-Fetch-Site: same-origin' \
+  -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36' \
+  -H 'X-Requested-With: XMLHttpRequest' \
+  -H 'sec-ch-ua: "Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "Linux"' \
+  --data-raw 'divIdx=0&popId=taxPayerItemPopup&popTitle=Search+registered+item&popSize=XL&multiYn=N&callBackFnc=saleTaxPeyerItemList.cbTaxPeyerItem'
+  
+  curl 'https://etims.kra.go.ke/app/ebm/trns/popup/trnsSalesTaxPayerItemClsList' \
+  -H 'Accept: text/html, */*; q=0.01' \
+  -H 'Accept-Language: en-GB,en-US;q=0.9,en;q=0.8' \
+  -H 'Connection: keep-alive' \
+  -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' \
+  -b 'JSESSIONID=44AE7C937869EEB79746437EDEFE3609; BIGipServer~k8sprd02~Shared~etims_portal_8080_etims_prod_etims_kra_go_ke=2517359626.36895.0000' \
+  -H 'Origin: https://etims.kra.go.ke' \
+  -H 'Referer: https://etims.kra.go.ke/app/ebm/trns/sales/indexTrnsSalesReceiptDetail' \
+  -H 'Sec-Fetch-Dest: empty' \
+  -H 'Sec-Fetch-Mode: cors' \
+  -H 'Sec-Fetch-Site: same-origin' \
+  -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36' \
+  -H 'X-Requested-With: XMLHttpRequest' \
+  -H 'sec-ch-ua: "Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "Linux"' \
+  --data-raw 'page=1&itemCd=&itemNm='
+
+  curl 'https://etims.kra.go.ke/app/ebm/trns/popup/trnsSalesTaxpayerItemList' \
+  -H 'Accept: text/html, */*; q=0.01' \
+  -H 'Accept-Language: en-GB,en-US;q=0.9,en;q=0.8' \
+  -H 'Connection: keep-alive' \
+  -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' \
+  -b 'JSESSIONID=44AE7C937869EEB79746437EDEFE3609; BIGipServer~k8sprd02~Shared~etims_portal_8080_etims_prod_etims_kra_go_ke=2517359626.36895.0000' \
+  -H 'Origin: https://etims.kra.go.ke' \
+  -H 'Referer: https://etims.kra.go.ke/app/ebm/trns/sales/indexTrnsSalesReceiptDetail' \
+  -H 'Sec-Fetch-Dest: empty' \
+  -H 'Sec-Fetch-Mode: cors' \
+  -H 'Sec-Fetch-Site: same-origin' \
+  -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36' \
+  -H 'X-Requested-With: XMLHttpRequest' \
+  -H 'sec-ch-ua: "Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "Linux"' \
+  --data-raw 'page=1&itemCd=&itemNm=&itemClsCd=5040150100'
+
+  curl 'https://etims.kra.go.ke/app/ebm/trns/popup/popupTrnsSalesTaxPayerItem' \
+  -H 'Accept: text/html, */*; q=0.01' \
+  -H 'Accept-Language: en-GB,en-US;q=0.9,en;q=0.8' \
+  -H 'Connection: keep-alive' \
+  -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' \
+  -b 'JSESSIONID=44AE7C937869EEB79746437EDEFE3609; BIGipServer~k8sprd02~Shared~etims_portal_8080_etims_prod_etims_kra_go_ke=2517359626.36895.0000' \
+  -H 'Origin: https://etims.kra.go.ke' \
+  -H 'Referer: https://etims.kra.go.ke/app/ebm/trns/sales/indexTrnsSalesReceiptDetail' \
+  -H 'Sec-Fetch-Dest: empty' \
+  -H 'Sec-Fetch-Mode: cors' \
+  -H 'Sec-Fetch-Site: same-origin' \
+  -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36' \
+  -H 'X-Requested-With: XMLHttpRequest' \
+  -H 'sec-ch-ua: "Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "Linux"' \
+  --data-raw 'divIdx=1&popId=taxPayerItemPopup&popTitle=Search+registered+item&popSize=XL&multiYn=N&callBackFnc=saleTaxPeyerItemList.cbTaxPeyerItem'
+
+  curl 'https://etims.kra.go.ke/app/ebm/trns/popup/trnsSalesTaxPayerItemClsList' \
+  -H 'Accept: text/html, */*; q=0.01' \
+  -H 'Accept-Language: en-GB,en-US;q=0.9,en;q=0.8' \
+  -H 'Connection: keep-alive' \
+  -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' \
+  -b 'JSESSIONID=44AE7C937869EEB79746437EDEFE3609; BIGipServer~k8sprd02~Shared~etims_portal_8080_etims_prod_etims_kra_go_ke=2517359626.36895.0000' \
+  -H 'Origin: https://etims.kra.go.ke' \
+  -H 'Referer: https://etims.kra.go.ke/app/ebm/trns/sales/indexTrnsSalesReceiptDetail' \
+  -H 'Sec-Fetch-Dest: empty' \
+  -H 'Sec-Fetch-Mode: cors' \
+  -H 'Sec-Fetch-Site: same-origin' \
+  -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36' \
+  -H 'X-Requested-With: XMLHttpRequest' \
+  -H 'sec-ch-ua: "Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "Linux"' \
+  --data-raw 'page=1&itemCd=&itemNm='
+
+  curl 'https://etims.kra.go.ke/app/ebm/trns/popup/trnsSalesTaxpayerItemList' \
+  -H 'Accept: text/html, */*; q=0.01' \
+  -H 'Accept-Language: en-GB,en-US;q=0.9,en;q=0.8' \
+  -H 'Connection: keep-alive' \
+  -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' \
+  -b 'JSESSIONID=44AE7C937869EEB79746437EDEFE3609; BIGipServer~k8sprd02~Shared~etims_portal_8080_etims_prod_etims_kra_go_ke=2517359626.36895.0000' \
+  -H 'Origin: https://etims.kra.go.ke' \
+  -H 'Referer: https://etims.kra.go.ke/app/ebm/trns/sales/indexTrnsSalesReceiptDetail' \
+  -H 'Sec-Fetch-Dest: empty' \
+  -H 'Sec-Fetch-Mode: cors' \
+  -H 'Sec-Fetch-Site: same-origin' \
+  -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36' \
+  -H 'X-Requested-With: XMLHttpRequest' \
+  -H 'sec-ch-ua: "Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "Linux"' \
+  --data-raw 'page=1&itemCd=&itemNm=&itemClsCd=5040150100'
+
+  curl 'https://etims.kra.go.ke/app/ebm/trns/popup/popupTrnsSalesTaxPayerItem' \
+  -H 'Accept: text/html, */*; q=0.01' \
+  -H 'Accept-Language: en-GB,en-US;q=0.9,en;q=0.8' \
+  -H 'Connection: keep-alive' \
+  -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' \
+  -b 'JSESSIONID=44AE7C937869EEB79746437EDEFE3609; BIGipServer~k8sprd02~Shared~etims_portal_8080_etims_prod_etims_kra_go_ke=2517359626.36895.0000' \
+  -H 'Origin: https://etims.kra.go.ke' \
+  -H 'Referer: https://etims.kra.go.ke/app/ebm/trns/sales/indexTrnsSalesReceiptDetail' \
+  -H 'Sec-Fetch-Dest: empty' \
+  -H 'Sec-Fetch-Mode: cors' \
+  -H 'Sec-Fetch-Site: same-origin' \
+  -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36' \
+  -H 'X-Requested-With: XMLHttpRequest' \
+  -H 'sec-ch-ua: "Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "Linux"' \
+  --data-raw 'divIdx=2&popId=taxPayerItemPopup&popTitle=Search+registered+item&popSize=XL&multiYn=N&callBackFnc=saleTaxPeyerItemList.cbTaxPeyerItem'
+
+  curl 'https://etims.kra.go.ke/app/ebm/trns/popup/trnsSalesTaxPayerItemClsList' \
+  -H 'Accept: text/html, */*; q=0.01' \
+  -H 'Accept-Language: en-GB,en-US;q=0.9,en;q=0.8' \
+  -H 'Connection: keep-alive' \
+  -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' \
+  -b 'JSESSIONID=44AE7C937869EEB79746437EDEFE3609; BIGipServer~k8sprd02~Shared~etims_portal_8080_etims_prod_etims_kra_go_ke=2517359626.36895.0000' \
+  -H 'Origin: https://etims.kra.go.ke' \
+  -H 'Referer: https://etims.kra.go.ke/app/ebm/trns/sales/indexTrnsSalesReceiptDetail' \
+  -H 'Sec-Fetch-Dest: empty' \
+  -H 'Sec-Fetch-Mode: cors' \
+  -H 'Sec-Fetch-Site: same-origin' \
+  -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36' \
+  -H 'X-Requested-With: XMLHttpRequest' \
+  -H 'sec-ch-ua: "Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "Linux"' \
+  --data-raw 'page=1&itemCd=&itemNm='
+
+  curl 'https://etims.kra.go.ke/app/ebm/trns/popup/trnsSalesTaxpayerItemList' \
+  -H 'Accept: text/html, */*; q=0.01' \
+  -H 'Accept-Language: en-GB,en-US;q=0.9,en;q=0.8' \
+  -H 'Connection: keep-alive' \
+  -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' \
+  -b 'JSESSIONID=44AE7C937869EEB79746437EDEFE3609; BIGipServer~k8sprd02~Shared~etims_portal_8080_etims_prod_etims_kra_go_ke=2517359626.36895.0000' \
+  -H 'Origin: https://etims.kra.go.ke' \
+  -H 'Referer: https://etims.kra.go.ke/app/ebm/trns/sales/indexTrnsSalesReceiptDetail' \
+  -H 'Sec-Fetch-Dest: empty' \
+  -H 'Sec-Fetch-Mode: cors' \
+  -H 'Sec-Fetch-Site: same-origin' \
+  -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36' \
+  -H 'X-Requested-With: XMLHttpRequest' \
+  -H 'sec-ch-ua: "Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "Linux"' \
+  --data-raw 'page=1&itemCd=&itemNm=&itemClsCd=5040150100'
+
+  curl 'https://etims.kra.go.ke/app/ebm/trns/popup/popupTrnsSalesTaxPayerItem' \
+  -H 'Accept: text/html, */*; q=0.01' \
+  -H 'Accept-Language: en-GB,en-US;q=0.9,en;q=0.8' \
+  -H 'Connection: keep-alive' \
+  -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' \
+  -b 'JSESSIONID=44AE7C937869EEB79746437EDEFE3609; BIGipServer~k8sprd02~Shared~etims_portal_8080_etims_prod_etims_kra_go_ke=2517359626.36895.0000' \
+  -H 'Origin: https://etims.kra.go.ke' \
+  -H 'Referer: https://etims.kra.go.ke/app/ebm/trns/sales/indexTrnsSalesReceiptDetail' \
+  -H 'Sec-Fetch-Dest: empty' \
+  -H 'Sec-Fetch-Mode: cors' \
+  -H 'Sec-Fetch-Site: same-origin' \
+  -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36' \
+  -H 'X-Requested-With: XMLHttpRequest' \
+  -H 'sec-ch-ua: "Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "Linux"' \
+  --data-raw 'divIdx=3&popId=taxPayerItemPopup&popTitle=Search+registered+item&popSize=XL&multiYn=N&callBackFnc=saleTaxPeyerItemList.cbTaxPeyerItem'
+
+  curl 'https://etims.kra.go.ke/app/ebm/trns/popup/trnsSalesTaxPayerItemClsList' \
+  -H 'Accept: text/html, */*; q=0.01' \
+  -H 'Accept-Language: en-GB,en-US;q=0.9,en;q=0.8' \
+  -H 'Connection: keep-alive' \
+  -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' \
+  -b 'JSESSIONID=44AE7C937869EEB79746437EDEFE3609; BIGipServer~k8sprd02~Shared~etims_portal_8080_etims_prod_etims_kra_go_ke=2517359626.36895.0000' \
+  -H 'Origin: https://etims.kra.go.ke' \
+  -H 'Referer: https://etims.kra.go.ke/app/ebm/trns/sales/indexTrnsSalesReceiptDetail' \
+  -H 'Sec-Fetch-Dest: empty' \
+  -H 'Sec-Fetch-Mode: cors' \
+  -H 'Sec-Fetch-Site: same-origin' \
+  -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36' \
+  -H 'X-Requested-With: XMLHttpRequest' \
+  -H 'sec-ch-ua: "Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "Linux"' \
+  --data-raw 'page=1&itemCd=&itemNm='
+
+  curl 'https://etims.kra.go.ke/app/ebm/trns/popup/trnsSalesTaxpayerItemList' \
+  -H 'Accept: text/html, */*; q=0.01' \
+  -H 'Accept-Language: en-GB,en-US;q=0.9,en;q=0.8' \
+  -H 'Connection: keep-alive' \
+  -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' \
+  -b 'JSESSIONID=44AE7C937869EEB79746437EDEFE3609; BIGipServer~k8sprd02~Shared~etims_portal_8080_etims_prod_etims_kra_go_ke=2517359626.36895.0000' \
+  -H 'Origin: https://etims.kra.go.ke' \
+  -H 'Referer: https://etims.kra.go.ke/app/ebm/trns/sales/indexTrnsSalesReceiptDetail' \
+  -H 'Sec-Fetch-Dest: empty' \
+  -H 'Sec-Fetch-Mode: cors' \
+  -H 'Sec-Fetch-Site: same-origin' \
+  -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36' \
+  -H 'X-Requested-With: XMLHttpRequest' \
+  -H 'sec-ch-ua: "Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "Linux"' \
+  --data-raw 'page=1&itemCd=&itemNm=&itemClsCd=5040150100'
+
+  curl 'https://etims.kra.go.ke/app/ebm/trns/sales/insertTrnsSalesReceipt' \
+  -H 'Accept: application/json, text/javascript, */*; q=0.01' \
+  -H 'Accept-Language: en-GB,en-US;q=0.9,en;q=0.8' \
+  -H 'Connection: keep-alive' \
+  -H 'Content-Type: application/x-www-form-urlencoded;charset=UTF-8' \
+  -b 'JSESSIONID=44AE7C937869EEB79746437EDEFE3609; BIGipServer~k8sprd02~Shared~etims_portal_8080_etims_prod_etims_kra_go_ke=2517359626.36895.0000' \
+  -H 'Origin: https://etims.kra.go.ke' \
+  -H 'Referer: https://etims.kra.go.ke/app/ebm/trns/sales/indexTrnsSalesReceiptDetail' \
+  -H 'Sec-Fetch-Dest: empty' \
+  -H 'Sec-Fetch-Mode: cors' \
+  -H 'Sec-Fetch-Site: same-origin' \
+  -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36' \
+  -H 'X-Requested-With: XMLHttpRequest' \
+  -H 'sec-ch-ua: "Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "Linux"' \
+  --data-raw 'custTin=&custNm=SAFARI+CENTER+NAIVASHA&custMblNo=020+8000792&custMblFornNo=&pmtTyCd=07&totSplyAmt=15450&totTaxblAmt=15450&totTaxAmt=0&sumTotAmt=15450&taxblAmtA=0&taxAmtA=0&taxRtA=0&taxblAmtB=0&taxAmtB=0&taxRtB=16&taxblAmtC=0&taxAmtC=0&taxRtC=0&taxblAmtE=0&taxAmtE=0&taxRtE=8&taxblAmtD=15450&taxAmtD=0&taxRtD=0&itemClsCd=5040150100&itemCd=KE2BZXBEX00001&bcd=&itemNm=Onions+Red&pkgUnitCd=BZ&pkg=&qtyUnitCd=BE&qty=150&prc=85&dcRt=0&dcAmt=0&splyAmt=12750&taxblAmt=12750&taxTyRate=0&taxTyCd=D&taxAmt=0&totAmt=12750&itemClsCd=5040150100&itemCd=KE2BEXBEX00001&bcd=&itemNm=Dania&pkgUnitCd=BE&pkg=&qtyUnitCd=BE&qty=70&prc=20&dcRt=0&dcAmt=0&splyAmt=1400&taxblAmt=1400&taxTyRate=0&taxTyCd=D&taxAmt=0&totAmt=1400&itemClsCd=5040150100&itemCd=KE1BEXKGX00003&bcd=&itemNm=Mint+Herbs&pkgUnitCd=BE&pkg=&qtyUnitCd=KG&qty=10&prc=35&dcRt=0&dcAmt=0&splyAmt=350&taxblAmt=350&taxTyRate=0&taxTyCd=D&taxAmt=0&totAmt=350&itemClsCd=5040150100&itemCd=KE2BZXU00001&bcd=&itemNm=Salad+Onion+250g&pkgUnitCd=BZ&pkg=&qtyUnitCd=U&qty=10&prc=95&dcRt=0&dcAmt=0&splyAmt=950&taxblAmt=950&taxTyRate=0&taxTyCd=D&taxAmt=0&totAmt=950&remark=Order+No.P040603675%2CDelivery+Note+No.2076QOS%2CGrn+No.+NVS-008740467%2CInvoice+No.+193+%2CStore+No.110'

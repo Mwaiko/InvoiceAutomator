@@ -1,0 +1,592 @@
+"""
+fill_kra.py  –  Submit a sales receipt to the KRA eTIMS *web portal*
+               (etims.kra.go.ke) by replaying the browser form POST.
+
+Flow
+────
+1.  GET  /basic/login/indexLogin       →  seed JSESSIONID + BIGip cookies
+2.  POST /basic/login/loginProc        →  authenticate (mbrId / mbrPwd)
+3.  For every GRN line item,
+    POST /app/ebm/trns/sales/insertTrnsSalesReceipt
+
+Endpoints confirmed from captured cURL:
+  Login page : https://etims.kra.go.ke/basic/login/indexLogin
+  Login POST : https://etims.kra.go.ke/basic/login/loginProc
+  Sales POST : https://etims.kra.go.ke/app/ebm/trns/sales/insertTrnsSalesReceipt
+"""
+
+from __future__ import annotations
+
+import logging
+import time
+from dataclasses import dataclass, field
+from typing import Optional
+
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+log = logging.getLogger(__name__)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CONFIG  (override via env-vars or pass EtimsConfig directly)
+# ─────────────────────────────────────────────────────────────────────────────
+
+BASE_URL        = "https://etims.kra.go.ke"
+LOGIN_PAGE_PATH = "/basic/login/indexLogin"   # GET first — seeds session cookie
+LOGIN_PATH      = "/basic/login/loginProc"    # POST with mbrId / mbrPwd
+SALES_PATH      = "/app/ebm/trns/sales/insertTrnsSalesReceipt"
+
+# Retry / timeout knobs
+TIMEOUT_S       = 30
+MAX_RETRIES     = 3
+BACKOFF_FACTOR  = 1.5   # waits 1.5 s, 3 s, 4.5 s between retries
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DATA CLASSES
+# ─────────────────────────────────────────────────────────────────────────────
+
+@dataclass
+class EtimsConfig:
+    pin:      str
+    username: str
+    password: str
+    # FIX 1: added missing `branch` field that the CLI __main__ block passes in
+    branch:   str = "001"
+    base_url: str = BASE_URL
+
+
+@dataclass
+class SaleItem:
+    """One line on the receipt — mirrors the portal form fields."""
+    item_cls_cd:  str           # e.g. "5030150300"
+    item_cd:      str           # taxpayer item code  e.g. "KE2BGXKGX00001"
+    item_nm:      str           # description
+    pkg_unit_cd:  str = "BG"    # packaging unit
+    qty_unit_cd:  str = "KG"    # qty unit
+    qty:          float = 1.0
+    prc:          float = 0.0
+    dc_rt:        float = 0.0   # discount rate %
+    tax_ty_cd:    str = "D"     # A=16% VAT, B=16%, D=exempt, E=8%
+    bcd:          str = ""      # barcode (optional)
+    pkg:          str = ""      # package count (optional)
+
+    # ── Derived / computed ────────────────────────────────────────────────────
+    @property
+    def dc_amt(self) -> float:
+        return round(self.prc * self.qty * self.dc_rt / 100, 2)
+
+    @property
+    def sply_amt(self) -> float:
+        return round(self.prc * self.qty - self.dc_amt, 2)
+
+    @property
+    def tax_rate(self) -> float:
+        return {"A": 16.0, "B": 16.0, "E": 8.0}.get(self.tax_ty_cd, 0.0)
+
+    @property
+    def taxbl_amt(self) -> float:
+        if self.tax_rate == 0:
+            return self.sply_amt
+        return round(self.sply_amt / (1 + self.tax_rate / 100), 2)
+
+    @property
+    def tax_amt(self) -> float:
+        if self.tax_rate == 0:
+            return 0.0
+        return round(self.sply_amt - self.taxbl_amt, 2)
+
+    @property
+    def tot_amt(self) -> float:
+        return self.sply_amt   # portal totAmt = splyAmt (tax already inside)
+
+
+@dataclass
+class ReceiptHeader:
+    """Header fields shared across all items in one receipt."""
+    cust_nm:           str
+    cust_mbl_no:       str = "020 8000792"
+    cust_tin:          str = ""
+    cust_mbl_forn_no:  str = ""
+    # FIX 2: added custBranchNm field that etims_mapper.py puts in its invoice dict
+    cust_branch_nm:    str = ""
+    pmt_ty_cd:         str = "07"   # 06=other, 07=credit
+    items:             list[SaleItem] = field(default_factory=list)
+
+    # ── NON-FISCAL INFORMATION ────────────────────────────────────────────────
+    order_no:          str = ""
+    delivery_note_no:  str = ""
+    grn_no:            str = ""
+    invoice_no:        str = ""
+    store_no:          str = ""
+
+    @property
+    def remark(self) -> str:
+        """Build the NON-FISCAL remark string exactly as the portal expects it."""
+        # FIX 3: unified remark format — matches etims_mapper.py build exactly
+        return (
+            f"Order No.{self.order_no},"
+            f"Delivery Note No.{self.delivery_note_no},"
+            f"Grn No. {self.grn_no},"
+            f"Invoice No.{self.invoice_no},"
+            f"Store No {self.store_no}"
+        )
+
+    # ── Receipt-level totals (computed from items) ────────────────────────────
+    @property
+    def tot_sply_amt(self) -> float:
+        return round(sum(i.sply_amt for i in self.items), 2)
+
+    @property
+    def tot_taxbl_amt(self) -> float:
+        return round(sum(i.taxbl_amt for i in self.items), 2)
+
+    @property
+    def tot_tax_amt(self) -> float:
+        return round(sum(i.tax_amt for i in self.items), 2)
+
+    @property
+    def sum_tot_amt(self) -> float:
+        return round(sum(i.tot_amt for i in self.items), 2)
+
+    def taxbl_by_code(self, code: str) -> float:
+        return round(sum(i.taxbl_amt for i in self.items if i.tax_ty_cd == code), 2)
+
+    def tax_by_code(self, code: str) -> float:
+        return round(sum(i.tax_amt for i in self.items if i.tax_ty_cd == code), 2)
+
+    def tax_rate_for(self, code: str) -> float:
+        rates = {i.tax_ty_cd: i.tax_rate for i in self.items}
+        return rates.get(code, 0.0)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SESSION FACTORY  (retry + keep-alive)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _make_session() -> requests.Session:
+    sess = requests.Session()
+    retry = Retry(
+        total=MAX_RETRIES,
+        backoff_factor=BACKOFF_FACTOR,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=["POST", "GET"],
+        raise_on_status=False,
+    )
+    adapter = HTTPAdapter(max_retries=retry)
+    sess.mount("https://", adapter)
+    sess.mount("http://",  adapter)
+
+    sess.headers.update({
+        "User-Agent":      "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                           "(KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",
+        "Accept-Language": "en-GB,en-US;q=0.9,en;q=0.8",
+        "X-Requested-With": "XMLHttpRequest",
+        "sec-ch-ua":        '"Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"Linux"',
+    })
+    return sess
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# LOGIN
+# ─────────────────────────────────────────────────────────────────────────────
+
+def login(cfg: EtimsConfig, session: requests.Session) -> None:
+    base = cfg.base_url
+
+    # Step 1: seed the session cookie
+    seed_url = f"{base}{LOGIN_PAGE_PATH}"
+    log.info("  → GET %s  (seeding session cookie)", seed_url)
+    r0 = session.get(seed_url, timeout=TIMEOUT_S)
+    _raise_for_kra(r0, context="login-page")
+
+    # Step 2: submit credentials
+    url = f"{base}{LOGIN_PATH}"
+    payload = {
+        "mbrId":  cfg.username,
+        "mbrPwd": cfg.password,
+    }
+    headers = {
+        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+        "Accept":       "application/json, text/javascript, */*; q=0.01",
+        "Origin":       base,
+        "Referer":      f"{base}{LOGIN_PAGE_PATH}",
+        "Sec-Fetch-Dest": "empty",
+        "Sec-Fetch-Mode": "cors",
+        "Sec-Fetch-Site": "same-origin",
+    }
+
+    log.info("  → POST %s  (mbrId=%s)", url, cfg.username)
+    r = session.post(url, data=payload, headers=headers, timeout=TIMEOUT_S)
+    _raise_for_kra(r, context="loginProc")
+
+    if "JSESSIONID" not in session.cookies:
+        raise KraError(
+            "Login POST returned HTTP 200 but no JSESSIONID cookie was set. "
+            "Verify mbrId / mbrPwd are correct and LOGIN_PATH is right."
+        )
+
+    try:
+        body = r.json()
+        rc = str(body.get("resultCd", "000")).strip()
+        if rc != "000":
+            raise KraError(
+                f"Login rejected by KRA  resultCd={rc}  "
+                f"msg={body.get('resultMsg', 'n/a')}"
+            )
+    except ValueError:
+        pass
+
+    log.info("✅ eTIMS login OK  (JSESSIONID=%s…)", session.cookies["JSESSIONID"][:8])
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# BUILD FORM PAYLOAD
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _build_form(header: ReceiptHeader) -> list[tuple[str, str]]:
+    def f(v: float) -> str:
+        return f"{v:.2f}" if v != int(v) else str(int(v))
+
+    # FIX 4: added custBranchNm to the form payload to match the new field
+    pairs: list[tuple[str, str]] = [
+        ("custTin",       header.cust_tin),
+        ("custNm",        header.cust_nm),
+        ("custBranchNm",  header.cust_branch_nm),
+        ("custMblNo",     header.cust_mbl_no),
+        ("custMblFornNo", header.cust_mbl_forn_no),
+        ("pmtTyCd",       header.pmt_ty_cd),
+
+        ("totSplyAmt",    f(header.tot_sply_amt)),
+        ("totTaxblAmt",   f(header.tot_taxbl_amt)),
+        ("totTaxAmt",     f(header.tot_tax_amt)),
+        ("sumTotAmt",     f(header.sum_tot_amt)),
+
+        ("taxblAmtA",     f(header.taxbl_by_code("A"))),
+        ("taxAmtA",       f(header.tax_by_code("A"))),
+        ("taxRtA",        f(header.tax_rate_for("A"))),
+        ("taxblAmtB",     f(header.taxbl_by_code("B"))),
+        ("taxAmtB",       f(header.tax_by_code("B"))),
+        ("taxRtB",        "16"),
+        ("taxblAmtC",     f(header.taxbl_by_code("C"))),
+        ("taxAmtC",       f(header.tax_by_code("C"))),
+        ("taxRtC",        "0"),
+        ("taxblAmtE",     f(header.taxbl_by_code("E"))),
+        ("taxAmtE",       f(header.tax_by_code("E"))),
+        ("taxRtE",        "8"),
+        ("taxblAmtD",     f(header.taxbl_by_code("D"))),
+        ("taxAmtD",       f(header.tax_by_code("D"))),
+        ("taxRtD",        "0"),
+    ]
+
+    for item in header.items:
+        pairs += [
+            ("itemClsCd", item.item_cls_cd),
+            ("itemCd",    item.item_cd),
+            ("bcd",       item.bcd),
+            ("itemNm",    item.item_nm),
+            ("pkgUnitCd", item.pkg_unit_cd),
+            ("pkg",       item.pkg),
+            ("qtyUnitCd", item.qty_unit_cd),
+            ("qty",       f(item.qty)),
+            ("prc",       f(item.prc)),
+            ("dcRt",      f(item.dc_rt)),
+            ("dcAmt",     f(item.dc_amt)),
+            ("splyAmt",   f(item.sply_amt)),
+            ("taxblAmt",  f(item.taxbl_amt)),
+            ("taxTyRate", f(item.tax_rate)),
+            ("taxTyCd",   item.tax_ty_cd),
+            ("taxAmt",    f(item.tax_amt)),
+            ("totAmt",    f(item.tot_amt)),
+        ]
+
+    pairs.append(("remark", header.remark))
+    return pairs
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SUBMIT ALL ITEMS IN ONE REQUEST
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _submit_receipt(
+    session: requests.Session,
+    cfg:     EtimsConfig,
+    header:  ReceiptHeader,
+) -> dict:
+    url  = f"{cfg.base_url}{SALES_PATH}"
+    form = _build_form(header)
+
+    hdrs = {
+        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+        "Accept":       "application/json, text/javascript, */*; q=0.01",
+        "Origin":       cfg.base_url,
+        "Referer":      (
+            f"{cfg.base_url}/app/ebm/trns/sales/"
+            "indexTrnsSalesReceiptDetail?bhfId=&invcNo=&curRcptNo="
+        ),
+        "Sec-Fetch-Dest": "empty",
+        "Sec-Fetch-Mode": "cors",
+        "Sec-Fetch-Site": "same-origin",
+    }
+
+    item_names = [i.item_nm for i in header.items]
+    log.info("  → Submitting %d item(s) in one receipt: %s", len(header.items), item_names)
+
+    r = session.post(url, data=form, headers=hdrs, timeout=TIMEOUT_S)
+    _raise_for_kra(r, context="insertTrnsSalesReceipt")
+
+    try:
+        return r.json()
+    except ValueError:
+        return {"raw": r.text.strip()}
+
+
+def run_fill(
+    cfg:    EtimsConfig,
+    header: ReceiptHeader,
+    *,
+    delay_between_items: float = 0.5,
+) -> list[dict]:
+    if not header.items:
+        raise ValueError("ReceiptHeader has no items — nothing to submit.")
+
+    session = _make_session()
+
+    log.info("🔑 Logging in to eTIMS portal (%s)…", cfg.base_url)
+    login(cfg, session)
+
+    try:
+        resp = _submit_receipt(session, cfg, header)
+        results = [{"items": [i.item_nm for i in header.items], "status": "ok", "response": resp}]
+        log.info("  ✅ Receipt accepted  (%d item(s))", len(header.items))
+    except KraError as exc:
+        log.error("  ❌ Receipt submission failed: %s", exc)
+        results = [{"items": [i.item_nm for i in header.items], "status": "error", "error": str(exc)}]
+    except Exception as exc:                          # noqa: BLE001
+        log.error("  ❌ Unexpected error: %s", exc)
+        results = [{"items": [i.item_nm for i in header.items], "status": "error", "error": str(exc)}]
+
+    ok_count = sum(1 for r in results if r["status"] == "ok")
+    log.info("📊 Done: %d/%d receipts submitted successfully.", ok_count, len(results))
+
+    return results
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HELPERS
+# ─────────────────────────────────────────────────────────────────────────────
+
+class KraError(Exception):
+    """Raised for KRA-specific HTTP or application-level errors."""
+
+
+def _raise_for_kra(r: requests.Response, *, context: str = "") -> None:
+    prefix = f"[{context}] " if context else ""
+
+    if r.status_code == 401:
+        raise KraError(f"{prefix}Session expired or invalid credentials (HTTP 401). Re-login needed.")
+    if r.status_code == 403:
+        raise KraError(f"{prefix}Access forbidden (HTTP 403). Check PIN/branch permissions.")
+    if r.status_code == 429:
+        raise KraError(f"{prefix}Rate-limited by KRA portal (HTTP 429). Slow down or retry later.")
+    if not r.ok:
+        raise KraError(f"{prefix}HTTP {r.status_code}: {r.text[:300]}")
+
+    try:
+        body = r.json()
+        result_cd = str(body.get("resultCd", "")).strip()
+        if result_cd and result_cd != "000":
+            raise KraError(
+                f"{prefix}KRA application error  resultCd={result_cd}  "
+                f"msg={body.get('resultMsg', 'n/a')}"
+            )
+    except (ValueError, AttributeError):
+        pass
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GRN → ReceiptHeader  converter
+# ─────────────────────────────────────────────────────────────────────────────
+
+def grn_to_receipt(grn: dict, cfg: EtimsConfig) -> ReceiptHeader:
+    """
+    Convert a parsed GRN dict (from read_salesReceipt.read_Grn) into a
+    ReceiptHeader ready for run_fill().
+
+    Also accepts the line-item dicts produced by etims_mapper.build_etims_payload(),
+    which use keys itemNm / qty / prc / dcRt instead of description / qty_received /
+    unit_price / dc_rt.  Both formats are handled transparently.
+    """
+    store        = grn.get("store") or {}
+    company_name = (store.get("company_name") or "").strip()
+    store_name   = (store.get("store_name")   or "").strip()
+    buyer_name   = f"{company_name} {store_name}".strip() or "UNKNOWN BUYER"
+
+    items: list[SaleItem] = []
+    for line in grn.get("items", []):
+        # FIX 5: accept BOTH key-name conventions so grn_to_receipt() works
+        # whether called with raw-GRN dicts (description/qty_received/unit_price)
+        # or mapper output dicts (itemNm/qty/prc).
+        raw_qty = line.get("qty_received") or line.get("qty", 1)
+        raw_prc = line.get("unit_price")   or line.get("prc", 0)
+        item_nm = (line.get("description") or line.get("itemNm") or "").strip()
+        item_cd = (line.get("item_code")   or line.get("itemCd") or "")
+
+        try:
+            qty = float(raw_qty)
+        except (TypeError, ValueError):
+            log.warning("Bad qty for item %r → defaulting to 1", item_nm)
+            qty = 1.0
+
+        try:
+            prc = float(raw_prc)
+        except (TypeError, ValueError):
+            log.warning("Bad price for item %r → defaulting to 0", item_nm)
+            prc = 0.0
+
+        items.append(SaleItem(
+            item_cls_cd = line.get("item_cls_cd",  "5030150300"),
+            item_cd     = item_cd,
+            item_nm     = item_nm,
+            pkg_unit_cd = line.get("pkg_unit_cd",  "BG"),
+            qty_unit_cd = line.get("uom",          "KG"),
+            qty         = qty,
+            prc         = prc,
+            dc_rt       = float(line.get("dcRt") or line.get("dc_rt") or 0),
+            tax_ty_cd   = line.get("tax_ty_cd",   "D"),
+        ))
+
+    if not items:
+        raise ValueError("GRN contains no line items — cannot build receipt.")
+
+    return ReceiptHeader(
+        cust_nm         = grn.get("custNm",  buyer_name) or buyer_name,
+        cust_tin        = grn.get("custTin", "") or "",
+        cust_branch_nm  = grn.get("custBranchNm", store_name) or store_name,
+        cust_mbl_no     = grn.get("custMblNo", "020 8000792") or "020 8000792",
+        cust_mbl_forn_no= grn.get("custMblFornNo", "") or "",
+        pmt_ty_cd       = grn.get("pmtTyCd", "07") or "07",
+        items           = items,
+        # Non-fiscal fields — read from top-level GRN keys
+        order_no        = grn.get("lpo_number",          "") or "",
+        delivery_note_no= grn.get("delivery_invoice_no", "") or "",
+        grn_no          = grn.get("receipt_voucher_no",  "") or "",
+        invoice_no      = grn.get("invoice_no",          "") or "",
+        store_no        = grn.get("store_no",            "") or "",
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MAPPER BRIDGE: etims_mapper invoice dict → ReceiptHeader
+# ─────────────────────────────────────────────────────────────────────────────
+
+def invoice_dict_to_receipt(invoice: dict, items_list: list[dict]) -> ReceiptHeader:
+    """
+    Convert the (invoice, items_list) tuple returned by
+    etims_mapper.build_etims_payload() directly into a ReceiptHeader.
+
+    This is the missing bridge between etims_mapper and fill_kra:
+      invoice_header, items_list, meta = build_etims_payload(...)
+      header = invoice_dict_to_receipt(invoice_header, items_list)
+      results = run_fill(cfg, header)
+    """
+    sale_items: list[SaleItem] = []
+    for line in items_list:
+        try:
+            qty = float(line.get("qty", 1))
+        except (TypeError, ValueError):
+            qty = 1.0
+        try:
+            prc = float(line.get("prc", 0))
+        except (TypeError, ValueError):
+            prc = 0.0
+
+        sale_items.append(SaleItem(
+            item_cls_cd = line.get("item_cls_cd",  "5030150300"),
+            item_cd     = line.get("itemCd",       ""),
+            item_nm     = (line.get("itemNm")      or "").strip(),
+            pkg_unit_cd = line.get("pkg_unit_cd",  "BG"),
+            qty_unit_cd = line.get("uom",          "KG"),
+            qty         = qty,
+            prc         = prc,
+            dc_rt       = float(line.get("dcRt") or 0),
+            tax_ty_cd   = line.get("tax_ty_cd",   "D"),
+        ))
+
+    if not sale_items:
+        raise ValueError("items_list is empty — cannot build ReceiptHeader.")
+
+    # Parse non-fiscal fields out of the remark string if present, or fall
+    # back to empty strings (caller can override before run_fill).
+    remark = invoice.get("remark", "")
+    order_no = delivery_note_no = grn_no = inv_no = store_no = ""
+    for part in remark.split(","):
+        part = part.strip()
+        if part.startswith("Order No."):
+            order_no = part[len("Order No."):]
+        elif part.startswith("Delivery Note No."):
+            delivery_note_no = part[len("Delivery Note No."):]
+        elif part.startswith("Grn No."):
+            grn_no = part[len("Grn No."):].strip()
+        elif part.startswith("Invoice No."):
+            inv_no = part[len("Invoice No."):]
+        elif part.startswith("Store No"):
+            store_no = part.split()[-1]
+
+    return ReceiptHeader(
+        cust_nm          = invoice.get("custNm",        ""),
+        cust_tin         = invoice.get("custTin",       ""),
+        cust_branch_nm   = invoice.get("custBranchNm",  ""),
+        cust_mbl_no      = invoice.get("custMblNo",     "020 8000792"),
+        cust_mbl_forn_no = invoice.get("custMblFornNo", ""),
+        pmt_ty_cd        = invoice.get("pmtTyCd",       "07"),
+        items            = sale_items,
+        order_no         = order_no,
+        delivery_note_no = delivery_note_no,
+        grn_no           = grn_no,
+        invoice_no       = inv_no,
+        store_no         = store_no,
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CLI  (python fill_kra.py invoice.pdf)
+# ─────────────────────────────────────────────────────────────────────────────
+
+if __name__ == "__main__":
+    import json
+    import os
+    import sys
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s  %(levelname)-7s  %(message)s",
+        datefmt="%H:%M:%S",
+    )
+
+    if len(sys.argv) < 2:
+        print("Usage: python fill_kra.py <invoice.pdf|invoice.jpg>")
+        sys.exit(1)
+
+    cfg = EtimsConfig(
+        pin      = os.environ.get("KRA_PIN",      "YOUR_KRA_PIN"),
+        branch   = os.environ.get("KRA_BRANCH",   "001"),
+        username = os.environ.get("KRA_USERNAME",  "YOUR_USERNAME"),
+        password = os.environ.get("KRA_PASSWORD",  "YOUR_PASSWORD"),
+    )
+
+    from read_salesReceipt import read_Grn
+
+    grn     = read_Grn(sys.argv[1])
+    header  = grn_to_receipt(grn, cfg)
+
+    print(f"\n📋 {len(header.items)} item(s) parsed.  Customer: {header.cust_nm}")
+    print(f"   Total supply: {header.tot_sply_amt}  Tax: {header.tot_tax_amt}  Grand: {header.sum_tot_amt}\n")
+
+    results = run_fill(cfg, header)
+
+    print("\n── RESULTS ──")
+    print(json.dumps(results, indent=2, default=str))
