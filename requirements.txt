@@ -1,49 +1,125 @@
-# ── Web framework ─────────────────────────────────────────────────────────────
-fastapi==0.115.0
-uvicorn[standard]==0.30.6
-
-# ── Database ──────────────────────────────────────────────────────────────────
-sqlalchemy==2.0.35
-asyncpg==0.29.0          # async PostgreSQL driver
-psycopg2-binary==2.9.9   # sync driver for Celery worker
+aiofiles==24.1.0
+albucore==0.0.13
+albumentations==1.4.10
 alembic==1.13.3
-
-# ── Config ────────────────────────────────────────────────────────────────────
+amqp==5.3.1
+annotated-types==0.7.0
+anyio==4.12.1
+astor==0.8.1
+async-timeout==5.0.1
+asyncpg==0.29.0
+attrs==25.4.0
+bcrypt==4.0.1
+beautifulsoup4==4.14.3
+billiard==4.2.4
+blinker==1.9.0
+celery==5.4.0
+certifi==2026.2.25
+cffi==2.0.0
+charset-normalizer==3.4.4
+click==8.3.1
+click-didyoumean==0.3.1
+click-plugins==1.1.1.2
+click-repl==0.3.0
+contourpy==1.3.2
+cryptography==46.0.5
+cycler==0.12.1
+Cython==3.2.4
+decorator==5.2.1
+dnspython==2.8.0
+ecdsa==0.19.1
+email-validator==2.3.0
+exceptiongroup==1.3.1
+fastapi==0.115.0
+fire==0.7.1
+Flask==3.1.3
+fonttools==4.61.1
+greenlet==3.3.2
+h11==0.16.0
+httpcore==1.0.9
+httptools==0.7.1
+httpx==0.27.2
+idna==3.11
+ImageIO==2.37.2
+imgaug==0.4.0
+itsdangerous==2.2.0
+Jinja2==3.1.6
+joblib==1.5.3
+kiwisolver==1.4.9
+kombu==5.6.2
+lazy_loader==0.4
+lmdb==1.7.5
+lxml==6.0.2
+Mako==1.3.10
+MarkupSafe==3.0.3
+matplotlib==3.10.8
+networkx==3.4.2
+numpy==1.26.4
+opencv-contrib-python==4.11.0.86
+opencv-python==4.11.0.86
+opencv-python-headless==4.11.0.86
+opt-einsum==3.3.0
+outcome==1.3.0.post0
+packaging==26.0
+paddleocr==2.9.1
+paddlepaddle==2.6.2
+passlib==1.7.4
+pdfminer.six==20231228
+pdfplumber==0.11.4
+pillow==12.1.1
+prompt_toolkit==3.0.52
+protobuf==6.33.5
+psycopg2-binary==2.9.9
+pyasn1==0.6.2
+pyclipper==1.4.0
+pycparser==3.0
 pydantic==2.9.2
 pydantic-settings==2.5.2
+pydantic_core==2.23.4
+pyparsing==3.3.2
+pypdfium2==5.5.0
+PyQt5==5.15.11
+PyQt5-Qt5==5.15.18
+PyQt5_sip==12.18.0
+PySocks==1.7.1
+python-dateutil==2.9.0.post0
+python-docx==1.2.0
 python-dotenv==1.0.1
-
-# ── Auth ──────────────────────────────────────────────────────────────────────
-python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
-
-# ── Background jobs ───────────────────────────────────────────────────────────
-celery==5.4.0
+python-jose==3.3.0
+python-multipart==0.0.12
+PyYAML==6.0.3
+RapidFuzz==3.14.3
 redis==5.1.1
-
-# ── File handling ─────────────────────────────────────────────────────────────
-python-multipart==0.0.12     # FastAPI file upload support
-aiofiles==24.1.0
-
-# ── GRN extraction (your existing scripts) ────────────────────────────────────
-pdfplumber==0.11.4
-paddlepaddle==2.6.2
-paddleocr==2.9.1
-
-# ── eTIMS automation (your existing scripts) ──────────────────────────────────
+requests==2.32.5
+rsa==4.9.1
+scikit-image==0.25.2
+scikit-learn==1.7.2
+scipy==1.15.3
 selenium==4.25.0
+shapely==2.1.2
+six==1.17.0
+sniffio==1.3.1
+sortedcontainers==2.4.0
+soupsieve==2.8.3
+SQLAlchemy==2.0.35
+starlette==0.38.6
+termcolor==3.3.0
+threadpoolctl==3.6.0
+tifffile==2025.5.10
+tomli==2.4.0
+tqdm==4.67.3
+trio==0.33.0
+trio-websocket==0.12.2
+typing_extensions==4.15.0
+tzdata==2025.3
+urllib3==2.6.3
+uvicorn==0.30.6
+uvloop==0.22.1
+vine==5.1.0
+watchfiles==1.1.1
+wcwidth==0.6.0
 webdriver-manager==4.0.2
-
-# ── HTTP client (for future eTIMS REST API) ───────────────────────────────────
-httpx==0.27.2
-
-python main.py invoice_files/P039864068.pdf
-python main.py invoice_files/P039870947.pdf
-python main.py invoice_files/P039876315.pdf
-
-Todo
-Add a Task Table that is only editable by user admin and it has all the failed grns to eTIMS invoices
-Grns to have proper styling 
-Grns to be able to be sorted by store name
-Etims Invoices also to be sorted by store name
-Create A Task
+websocket-client==1.9.0
+websockets==16.0
+Werkzeug==3.1.6
+wsproto==1.3.2
