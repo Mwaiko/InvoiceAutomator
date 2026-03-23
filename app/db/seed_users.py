@@ -1,12 +1,18 @@
 import asyncio
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.db.session import engine  # your async engine
+from app.db.session import engine 
 from app.db.models.user import User, UserRole
+from app.db.base import Base  # Import your Base to access metadata
 from app.core.security import hash_password
 
-
 async def seed_users():
+    # ─── Create Database Schema ──────────────────────────────────────────
+    # This will create all tables defined in your models if they don't exist
+    print("Checking and creating database schema...")
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    
     users_data = [
         {
             "email": "mwaikomo@gmail.com",
@@ -40,9 +46,9 @@ async def seed_users():
         },
     ]
 
+    # Use the session factory from your session.py or create one here
     async with AsyncSession(engine) as session:
         for user_data in users_data:
-
             result = await session.execute(
                 select(User).where(User.email == user_data["email"])
             )
@@ -65,5 +71,6 @@ async def seed_users():
         await session.commit()
 
     print("Users seeded successfully.")
+
 if __name__ == "__main__":
     asyncio.run(seed_users())

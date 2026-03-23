@@ -10,24 +10,22 @@ from app.core.logging import setup_logging
 
 # ── Startup / shutdown ────────────────────────────────────────────────────────
 
-# app/main.py
-from app.db.base import Base  # Import your Base
-from app.db.session import engine # Import your async engine
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     setup_logging()
-    
-    # --- ADD THIS PART ---
-    # This creates the tables based on your Base models
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    # ----------------------
 
+    # Ensure storage directories exist
     import os
     os.makedirs(settings.grn_storage_path, exist_ok=True)
-    yield
-    
+    os.makedirs(settings.invoice_storage_path, exist_ok=True)
+
+    yield  # application runs here
+
+    # Teardown (close engine, etc.) — add as needed
+
+
+# ── App factory ───────────────────────────────────────────────────────────────
+
 def create_app() -> FastAPI:
     app = FastAPI(
         title="GRN → eTIMS API",
