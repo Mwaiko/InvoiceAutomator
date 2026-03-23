@@ -4,7 +4,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=".env",              # used locally
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
@@ -12,14 +12,14 @@ class Settings(BaseSettings):
 
     # ── App ───────────────────────────────────────────────────────────────────
     app_env: str = "development"
-    app_secret_key: str = "change-me"
-    app_debug: bool = True
+    app_secret_key: str
+    app_debug: bool = False
 
     # ── Database ──────────────────────────────────────────────────────────────
-    database_url: str = "postgresql+asyncpg://postgres:101121@localhost:5432/grn_db"
+    database_url: str
 
     # ── Storage ───────────────────────────────────────────────────────────────
-    storage_backend: str = "local"          # "local" | "s3"
+    storage_backend: str = "local"
     storage_local_root: str = "./storage"
 
     # ── JWT ───────────────────────────────────────────────────────────────────
@@ -52,7 +52,6 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    """Cached — only parsed from disk once per process."""
     return Settings()
 
 
