@@ -9,6 +9,7 @@ POST   /grns/{id}/confirm   – operator confirms; resolves business/branch HERE
 POST   /grns/{id}/reject    – reject a GRN
 
 Changes vs previous version:
+  • Celery removed — submit_to_etims is now scheduled via FastAPI BackgroundTasks.
   • upload_grn  → business/branch resolution REMOVED. Upload now only saves
     the file, extracts data, and sets status=extracted. business_id and
     branch_id remain NULL until confirmation.
@@ -26,7 +27,7 @@ Changes vs previous version:
 import logging
 import uuid
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -145,6 +146,7 @@ async def get_grn(
 async def confirm_grn(
     grn_id: uuid.UUID,
     body: GRNConfirmRequest,
+    background_tasks: BackgroundTasks,          # ← replaces Celery queue
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = None,
 ):
@@ -198,11 +200,9 @@ async def confirm_grn(
     # Re-fetch to get refreshed state + uploader still loaded
     grn = await _get_grn_with_uploader(db, grn.id)
 
+    # ── Schedule eTIMS submission as a background task (no Celery) ────────────
     from app.workers.etims_tasks import submit_to_etims
-    submit_to_etims.apply_async(
-        args=[str(grn.id), str(etims_inv.id)],
-        queue="etims",
-    )
+    background_tasks.add_task(submit_to_etims, str(grn.id), str(etims_inv.id))
 
     return GRNResponse.from_orm_grn(grn)
 

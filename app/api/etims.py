@@ -2,13 +2,14 @@
 app/api/routes/etims.py
 
 GET    /etims-invoices                     – list invoices (filter by status, business, branch)
-GET    /etims-invoices/summary             – AR rollup per business          ← NEW
+GET    /etims-invoices/summary             – AR rollup per business
 GET    /etims-invoices/{id}                – get single invoice
 POST   /etims-invoices/{id}/retry          – re-queue a rejected invoice
-PATCH  /etims-invoices/{id}/payment        – record a payment amount          ← NEW
+PATCH  /etims-invoices/{id}/payment        – record a payment amount
 PATCH  /etims-invoices/{id}/payment-status – force-override payment status
 
 Changes:
+  • Celery removed — retry endpoint now uses FastAPI BackgroundTasks.
   • list_invoices → supports ?business_id= and ?branch_id= filters
   • record_payment → increments amount_paid, calls recalculate_payment_status(),
     and also updates the linked Business.total_paid + Branch.total_paid
@@ -18,7 +19,7 @@ Changes:
 import uuid
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -41,10 +42,10 @@ router = APIRouter(prefix="/etims-invoices", tags=["etims"])
 async def list_invoices(
     pagination: PaginationDep,
     _user: CurrentUser,
-    status: Optional[EtimsStatus]   = None,
+    status: Optional[EtimsStatus]        = None,
     payment_status: Optional[PaymentStatus] = None,
-    business_id: Optional[uuid.UUID] = None,   # ← NEW filter
-    branch_id:   Optional[uuid.UUID] = None,   # ← NEW filter
+    business_id: Optional[uuid.UUID]     = None,
+    branch_id:   Optional[uuid.UUID]     = None,
     db: AsyncSession = Depends(get_db),
 ):
     q = select(EtimsInvoice).order_by(EtimsInvoice.created_at.desc())
@@ -133,6 +134,7 @@ async def get_invoice(
 @router.post("/{invoice_id}/retry", response_model=EtimsInvoiceResponse)
 async def retry_invoice(
     invoice_id: uuid.UUID,
+    background_tasks: BackgroundTasks,          # ← replaces Celery queue
     _user: AccountantOrAdmin,
     db: AsyncSession = Depends(get_db),
 ):
@@ -152,11 +154,10 @@ async def retry_invoice(
     await db.commit()
     await db.refresh(inv)
 
+    # ── Schedule eTIMS re-submission as a background task (no Celery) ─────────
     from app.workers.etims_tasks import submit_to_etims
-    submit_to_etims.apply_async(
-        args=[str(inv.grn_id), str(inv.id)],
-        queue="etims",
-    )
+    background_tasks.add_task(submit_to_etims, str(inv.grn_id), str(inv.id))
+
     return inv
 
 
@@ -193,7 +194,7 @@ async def record_payment(
 
     # ── Mirror payment onto Business + Branch totals ───────────────────────
     if inv.business_id:
-        from app.db.models.business import Business as BusinessModel, Branch
+        from app.db.models.business import Business as BusinessModel
         business_obj = await db.get(BusinessModel, inv.business_id)
         if business_obj:
             business_obj.total_paid = float(business_obj.total_paid or 0) + payload.amount

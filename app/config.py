@@ -1,5 +1,3 @@
-
-
 from functools import lru_cache
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -19,11 +17,6 @@ class Settings(BaseSettings):
 
     # ── Database ──────────────────────────────────────────────────────────────
     database_url: str = "postgresql+asyncpg://postgres:101121@localhost:5432/grn_db"
-
-    # ── Redis / Celery ────────────────────────────────────────────────────────
-    redis_url: str = "redis://localhost:6379/0"
-    celery_broker_url: str = "redis://localhost:6379/0"
-    celery_result_backend: str = "redis://localhost:6379/1"
 
     # ── Storage ───────────────────────────────────────────────────────────────
     storage_backend: str = "local"          # "local" | "s3"
