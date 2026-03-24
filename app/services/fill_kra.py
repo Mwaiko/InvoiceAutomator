@@ -344,14 +344,70 @@ def _submit_receipt(
         return {"raw": r.text.strip()}
 
 
+def _extract_kracu(response: dict) -> str:
+    """
+    Pull the KRACU invoice number out of the KRA portal's JSON response.
+
+    The portal returns the confirmed invoice number in one of these keys
+    (tried in priority order):
+      cuInvcNo  →  e.g. "KRACU0200021805/388"   (most common)
+      invcNo
+      data.cuInvcNo  (nested)
+    Returns an empty string if not found.
+    """
+    if not isinstance(response, dict):
+        return ""
+
+    for key in ("cuInvcNo", "invcNo"):
+        val = response.get(key, "")
+        if val and str(val).upper().startswith("KRACU"):
+            return str(val).strip()
+
+    # nested under "data"
+    data = response.get("data") or {}
+    if isinstance(data, dict):
+        for key in ("cuInvcNo", "invcNo"):
+            val = data.get(key, "")
+            if val and str(val).upper().startswith("KRACU"):
+                return str(val).strip()
+
+    return ""
+
+
 def run_fill(
     cfg:    EtimsConfig,
     header: ReceiptHeader,
     *,
     delay_between_items: float = 0.5,
+    download_pdf: bool = False,
+    download_dir: "Path | str | None" = None,
 ) -> list[dict]:
+    """
+    Submit the receipt to KRA eTIMS.
+
+    Parameters
+    ----------
+    cfg, header         : as before
+    delay_between_items : kept for API compatibility (single-request flow, not used)
+    download_pdf        : if True, immediately download the receipt PDF after a
+                          successful submission using the KRACU returned by KRA.
+                          Uses the same authenticated session — no extra login.
+    download_dir        : directory to save the PDF (default: ./downloaded_receipts).
+                          Ignored when download_pdf is False.
+
+    Returns
+    -------
+    list[dict] — same structure as before, with an extra key ``pdf_path`` (str)
+    added to each successful entry when download_pdf=True.
+    """
     if not header.items:
         raise ValueError("ReceiptHeader has no items — nothing to submit.")
+
+    # Resolve download_dir early so import errors surface before the network call
+    if download_pdf:
+        from pathlib import Path as _Path
+        from download_invoice import download_receipt_pdf  # reuse existing logic
+        _out_dir = _Path(download_dir) if download_dir else _Path("./downloaded_receipts")
 
     session = _make_session()
 
@@ -360,8 +416,31 @@ def run_fill(
 
     try:
         resp = _submit_receipt(session, cfg, header)
-        results = [{"items": [i.item_nm for i in header.items], "status": "ok", "response": resp}]
+        result: dict = {"items": [i.item_nm for i in header.items], "status": "ok", "response": resp}
         log.info("  ✅ Receipt accepted  (%d item(s))", len(header.items))
+
+        # ── Auto-download PDF on the same session ─────────────────────────────
+        if download_pdf:
+            kracu = _extract_kracu(resp)
+            if kracu:
+                log.info("  📥 Downloading receipt PDF for %s …", kracu)
+                pdf_path = download_receipt_pdf(session, cfg, kracu, _out_dir)
+                result["kracu"]    = kracu
+                result["pdf_path"] = str(pdf_path) if pdf_path else None
+                if pdf_path:
+                    log.info("  ✅ PDF saved → %s", pdf_path)
+                else:
+                    log.warning("  ⚠️  PDF download failed for %s", kracu)
+            else:
+                log.warning(
+                    "  ⚠️  download_pdf=True but no KRACU found in KRA response. "
+                    "Raw response: %s", str(resp)[:200]
+                )
+                result["kracu"]    = None
+                result["pdf_path"] = None
+
+        results = [result]
+
     except KraError as exc:
         log.error("  ❌ Receipt submission failed: %s", exc)
         results = [{"items": [i.item_nm for i in header.items], "status": "error", "error": str(exc)}]
@@ -560,6 +639,8 @@ if __name__ == "__main__":
     import json
     import os
     import sys
+    import argparse
+    from pathlib import Path
 
     logging.basicConfig(
         level=logging.INFO,
@@ -567,9 +648,24 @@ if __name__ == "__main__":
         datefmt="%H:%M:%S",
     )
 
-    if len(sys.argv) < 2:
-        print("Usage: python fill_kra.py <invoice.pdf|invoice.jpg>")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(
+        description="Submit a sales receipt to KRA eTIMS and optionally download the PDF.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument("invoice", metavar="invoice.pdf|invoice.jpg",
+                        help="Path to the source invoice / GRN file to submit.")
+    parser.add_argument("--download-pdf", action="store_true",
+                        help="Download the receipt PDF immediately after a successful submission.")
+    parser.add_argument("--out", metavar="DIR", default="./downloaded_receipts",
+                        help="Directory to save the downloaded PDF (default: ./downloaded_receipts).")
+    parser.add_argument("--skip-check", action="store_true",
+                        help="Skip the pre-flight connectivity check and submit immediately.")
+    parser.add_argument("--check-timeout", type=float, default=15,
+                        help="Timeout (seconds) for each connectivity check step (default: 15).")
+    parser.add_argument("--wait", type=int, metavar="SECONDS",
+                        help="If the site is down, keep retrying the connectivity check every N "
+                             "seconds until it recovers, then submit automatically.")
+    args = parser.parse_args()
 
     cfg = EtimsConfig(
         pin      = os.environ.get("KRA_PIN",      "YOUR_KRA_PIN"),
@@ -578,15 +674,67 @@ if __name__ == "__main__":
         password = os.environ.get("KRA_PASSWORD",  "YOUR_PASSWORD"),
     )
 
+    # ── Pre-flight connectivity check ─────────────────────────────────────────
+    if not args.skip_check:
+        try:
+            from test_etims_connection import run_health_check, print_report
+        except ImportError:
+            log.warning(
+                "⚠️  test_etims_connection.py not found — skipping pre-flight check. "
+                "Place it in the same directory to enable it."
+            )
+        else:
+            import time as _time
+
+            attempt = 0
+            while True:
+                attempt += 1
+                if attempt > 1:
+                    print(f"\n[Attempt {attempt}]", end="")
+
+                report = run_health_check(
+                    full     = False,   # connectivity only — no second login needed
+                    timeout  = args.check_timeout,
+                )
+                print_report(report)
+
+                if report.site_up:
+                    break
+
+                if args.wait:
+                    print(f"  ⏳ Site is down. Retrying in {args.wait}s… (Ctrl-C to cancel)")
+                    _time.sleep(args.wait)
+                else:
+                    print(
+                        "  ❌ Aborting — KRA eTIMS is unreachable.\n"
+                        "     Tip: use --wait 60 to keep retrying, or --skip-check to submit anyway."
+                    )
+                    sys.exit(1)
+
+    # ── Parse invoice & submit ─────────────────────────────────────────────────
     from read_salesReceipt import read_Grn
 
-    grn     = read_Grn(sys.argv[1])
-    header  = grn_to_receipt(grn, cfg)
+    grn    = read_Grn(args.invoice)
+    header = grn_to_receipt(grn, cfg)
 
     print(f"\n📋 {len(header.items)} item(s) parsed.  Customer: {header.cust_nm}")
     print(f"   Total supply: {header.tot_sply_amt}  Tax: {header.tot_tax_amt}  Grand: {header.sum_tot_amt}\n")
 
-    results = run_fill(cfg, header)
+    results = run_fill(
+        cfg,
+        header,
+        download_pdf=args.download_pdf,
+        download_dir=Path(args.out) if args.download_pdf else None,
+    )
 
     print("\n── RESULTS ──")
     print(json.dumps(results, indent=2, default=str))
+
+    # Surface the saved PDF path prominently
+    for r in results:
+        if r.get("pdf_path"):
+            print(f"\n📄 Receipt PDF saved → {r['pdf_path']}")
+
+    # Exit with error code if any submission failed
+    if any(r.get("status") != "ok" for r in results):
+        sys.exit(1)

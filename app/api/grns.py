@@ -1,31 +1,21 @@
 """
 app/api/grns.py
 
-POST   /grns/upload         – upload PDF or image, auto-extract only
-GET    /grns                – list all GRNs (paginated)
-GET    /grns/{id}           – get single GRN
-POST   /grns/{id}/confirm   – operator confirms; resolves business/branch HERE,
-                              then updates invoiced totals + creates eTIMS invoice
-POST   /grns/{id}/reject    – reject a GRN
-
-Changes vs previous version:
-  • Celery removed — submit_to_etims is now scheduled via FastAPI BackgroundTasks.
-  • upload_grn  → business/branch resolution REMOVED. Upload now only saves
-    the file, extracts data, and sets status=extracted. business_id and
-    branch_id remain NULL until confirmation.
-  • confirm_grn → resolve_business_and_branch() is now called HERE, using the
-    operator-reviewed confirmed_data (which contains the final store block).
-    After resolution the rest of the flow (balance update, eTIMS invoice) is
-    unchanged.
-  • All routes now return GRNResponse.from_orm_grn(grn) so that
-    uploaded_by_name and uploaded_by_email are always populated from the
-    eager-loaded `uploaded_by` relationship (lazy="selectin" on GRN model).
-  • list_grns uses joinedload(GRN.uploaded_by) as an explicit safety net so
-    the relationship is always loaded even if the ORM default changes.
+POST   /grns/upload               – upload PDF or image, auto-extract only
+POST   /grns/from-order/{id}      – create a GRN directly from an existing order
+                                    (no file upload; extracted_data is built from
+                                    the order's fields and sent straight to the
+                                    confirm screen with status=extracted)
+GET    /grns                      – list all GRNs (paginated)
+GET    /grns/{id}                 – get single GRN
+POST   /grns/{id}/confirm         – operator confirms; resolves business/branch HERE,
+                                    then updates invoiced totals + creates eTIMS invoice
+POST   /grns/{id}/reject          – reject a GRN
 """
 
 import logging
 import uuid
+from datetime import date
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy import select
@@ -65,6 +55,48 @@ async def _get_grn_with_uploader(db: AsyncSession, grn_id: uuid.UUID) -> GRN:
     return grn
 
 
+def _order_items_to_grn_items(items) -> list:
+    """
+    Convert order line items (either ORM objects or dicts) to the
+    GRN extracted_data items format expected by GrnItem.fromJson().
+    Returns an empty list if the order has no items.
+    """
+    if not items:
+        return []
+    result = []
+    for i, item in enumerate(items):
+        if isinstance(item, dict):
+            qty   = float(item.get("quantity") or item.get("qty") or 0)
+            price = float(item.get("unit_price") or item.get("price") or 0)
+            result.append({
+                "id":           str(item.get("id") or i + 1),
+                "description":  item.get("description") or item.get("name") or f"Item {i + 1}",
+                "qty_received": qty,
+                "uom":          item.get("unit") or item.get("uom") or "PCS",
+                "unit_price":   price,
+                "net_amount":   float(item.get("net_amount") or item.get("total") or qty * price),
+                **({"item_code": item["item_code"]} if item.get("item_code") else {}),
+            })
+        else:
+            # ORM object with attribute access
+            qty   = float(getattr(item, "quantity",   0) or 0)
+            price = float(getattr(item, "unit_price", 0) or 0)
+            result.append({
+                "id":           str(getattr(item, "id", i + 1)),
+                "description":  getattr(item, "description", None) or f"Item {i + 1}",
+                "qty_received": qty,
+                "uom":          getattr(item, "unit", None) or getattr(item, "uom", None) or "PCS",
+                "unit_price":   price,
+                "net_amount":   float(
+                    getattr(item, "net_amount", None)
+                    or getattr(item, "total_price", None)
+                    or qty * price
+                ),
+                **({"item_code": item.item_code} if getattr(item, "item_code", None) else {}),
+            })
+    return result
+
+
 # ── routes ────────────────────────────────────────────────────────────────────
 
 @router.post("/upload", response_model=GRNResponse, status_code=201)
@@ -99,8 +131,87 @@ async def upload_grn(
         raise HTTPException(status_code=422, detail=f"Could not extract GRN: {exc}")
 
     await db.commit()
+    grn = await _get_grn_with_uploader(db, grn.id)
+    return GRNResponse.from_orm_grn(grn)
 
-    # Re-fetch with uploader so from_orm_grn() can resolve the name
+
+@router.post("/from-order/{order_id}", response_model=GRNResponse, status_code=201)
+async def create_grn_from_order(
+    order_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = None,
+):
+    """
+    Create a GRN directly from an existing order — no file upload required.
+
+    The order's fields are mapped into `extracted_data` using the same schema
+    that the GRN extractor produces, so the confirm screen can pre-fill every
+    section without any modifications.  The GRN is created with
+    status=extracted so the operator can review and edit before confirming.
+    """
+    from app.db.models.order import Order
+
+    order = await db.get(Order, order_id)
+    if not order:
+        raise NotFoundError(f"Order {order_id} not found")
+
+    # Resolve order total — try a few common attribute names defensively
+    raw_total = (
+        getattr(order, "order_total", None)
+        or getattr(order, "total_amount", None)
+        or getattr(order, "total", None)
+        or 0
+    )
+    order_total = float(raw_total)
+
+    # Build the same extracted_data shape the GRN extractor produces
+    extracted_data: dict = {
+        # GRN header
+        "receipt_voucher_no":   order.order_number,
+        "lpo_number":           getattr(order, "lpo_number", None),
+        "delivery_invoice_no":  None,
+        "receipt_date":         date.today().isoformat(),
+
+        # Link back to the source order so the frontend can display it
+        "order_id":             str(order.id),
+
+        # Store block — mirrors GRNStoreBlock schema
+        "store": {
+            "company_name": getattr(order, "store_name", None),
+            "store_name":   getattr(order, "store_name", None),
+            "address":      getattr(order, "delivery_address", None),
+            "location":     getattr(order, "delivery_location", None),
+        },
+
+        # Supplier block — mirrors GRNSupplierBlock schema
+        "supplier": {
+            "company_name": order.supplier_name,
+            "email":        getattr(order, "supplier_email", None),
+        },
+
+        # Line items (empty list if the order model has none)
+        "items": _order_items_to_grn_items(
+            getattr(order, "items", None) or getattr(order, "line_items", None)
+        ),
+
+        # Totals
+        "sub_total":   order_total,
+        "vat":         0.0,
+        "order_total": order_total,
+    }
+
+    grn = GRN(
+        # No physical file for order-derived GRNs
+        original_filename=f"ORDER-{order.order_number}",
+        storage_path=None,
+        file_type="order",
+        status=GRNStatus.extracted,
+        uploaded_by_id=user.id if user else None,
+        extracted_data=extracted_data,
+    )
+    db.add(grn)
+    await db.commit()
+
     grn = await _get_grn_with_uploader(db, grn.id)
     return GRNResponse.from_orm_grn(grn)
 
@@ -116,7 +227,7 @@ async def list_grns(
 ):
     q = (
         select(GRN)
-        .options(joinedload(GRN.uploaded_by))   # single extra join, not N+1
+        .options(joinedload(GRN.uploaded_by))
         .order_by(GRN.created_at.desc())
     )
     if status:
@@ -146,7 +257,7 @@ async def get_grn(
 async def confirm_grn(
     grn_id: uuid.UUID,
     body: GRNConfirmRequest,
-    background_tasks: BackgroundTasks,          # ← replaces Celery queue
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = None,
 ):
@@ -197,10 +308,8 @@ async def confirm_grn(
 
     await db.commit()
 
-    # Re-fetch to get refreshed state + uploader still loaded
     grn = await _get_grn_with_uploader(db, grn.id)
 
-    # ── Schedule eTIMS submission as a background task (no Celery) ────────────
     from app.workers.etims_tasks import submit_to_etims
     background_tasks.add_task(submit_to_etims, str(grn.id), str(etims_inv.id))
 
