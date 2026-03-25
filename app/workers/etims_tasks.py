@@ -64,9 +64,10 @@ async def submit_to_etims(grn_id: str, etims_invoice_id: str) -> dict:
 
         # ── Build mapper payload ──────────────────────────────────────────────
         try:
-            invoice_header, items_list, _meta = build_etims_payload(
+            invoice_header, items_list, meta = await build_etims_payload(
                 confirmed_data = grn.confirmed_data,
                 invoice_no     = grn.invoice_no or "",
+                db             = db,
                 business_id    = grn.business_id,
                 branch_id      = grn.branch_id,
                 business_name  = inv.business_name,
@@ -74,18 +75,29 @@ async def submit_to_etims(grn_id: str, etims_invoice_id: str) -> dict:
             )
         except ValueError as exc:
             logger.error("submit_to_etims: payload build failed for GRN %s: %s", grn_id, exc)
-            inv.status           = EtimsStatus.rejected
-            inv.rejection_reason = str(exc)
+            inv.status        = EtimsStatus.rejected
+            inv.error_message = str(exc)
             await db.commit()
             return {"error": str(exc)}
+
+        # ── Lock in the invoice number BEFORE hitting KRA ─────────────────────
+        # Persisting here means a crash / KRA timeout can never cause the same
+        # number to be reused — the next retry will get max + 1 instead.
+        inv.store_number   = meta["store_number"]
+        inv.invoice_number = meta["invoice_number"]
+        await db.commit()
+        logger.info(
+            "submit_to_etims: locked invoice_number=%s  store_number=%s  for EtimsInvoice %s",
+            meta["invoice_number"], meta["store_number"], etims_invoice_id,
+        )
 
         # ── Convert mapper dicts → ReceiptHeader / SaleItem objects ──────────
         try:
             receipt_header = invoice_dict_to_receipt(invoice_header, items_list)
         except ValueError as exc:
             logger.error("submit_to_etims: receipt conversion failed for GRN %s: %s", grn_id, exc)
-            inv.status           = EtimsStatus.rejected
-            inv.rejection_reason = str(exc)
+            inv.status        = EtimsStatus.rejected
+            inv.error_message = str(exc)
             await db.commit()
             return {"error": str(exc)}
 
@@ -115,19 +127,19 @@ async def submit_to_etims(grn_id: str, etims_invoice_id: str) -> dict:
                 "submit_to_etims: all %d KRA attempts exhausted for GRN %s: %s",
                 MAX_RETRIES, grn_id, last_error,
             )
-            inv.status           = EtimsStatus.rejected
-            inv.rejection_reason = str(last_error)
+            inv.status        = EtimsStatus.rejected
+            inv.error_message = str(last_error)
             await db.commit()
             return {"error": str(last_error)}
 
         # ── Persist result ────────────────────────────────────────────────────
         first_result = results[0] if results else {}
         if first_result.get("status") == "ok":
-            inv.status       = EtimsStatus.accepted
+            inv.status       = EtimsStatus.submitted
             inv.kra_response = first_result.get("response")
         else:
-            inv.status           = EtimsStatus.rejected
-            inv.rejection_reason = first_result.get("error", "unknown error")
+            inv.status        = EtimsStatus.rejected
+            inv.error_message = first_result.get("error", "unknown error")
             inv.retry_count      = (inv.retry_count or 0) + 1
 
         await db.commit()

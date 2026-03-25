@@ -8,11 +8,27 @@ Returns a 3-tuple: (invoice_header, items_list, meta) where:
   invoice_header – dict consumed by fill_kra.invoice_dict_to_receipt()
   items_list     – list of line-item dicts (keys aligned with fill_kra.grn_to_receipt)
   meta           – carries business_id, branch_id, business_name, branch_name,
-                   invoice_amount for stamping onto the EtimsInvoice row.
+                   invoice_amount, store_number, invoice_number for stamping
+                   onto the EtimsInvoice row.
+
+Invoice numbering
+─────────────────
+Each store (identified by its store_no) has its own sequential invoice counter.
+The STORE_SEED_INVOICE map records the last invoice number that was manually
+submitted before this system took over.  On every new submission the system:
+
+  1. Queries etims_invoices for the highest invoice_number already saved for
+     this store_number.
+  2. If a DB record exists → next = that number + 1.
+  3. If no DB record exists → next = seed + 1  (first automated invoice).
+  4. Saves the new invoice_number to the EtimsInvoice row via meta so the
+     caller (etims_tasks.submit_to_etims) can persist it before returning.
 """
 
 import uuid
-from typing import Optional
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
 
@@ -20,22 +36,40 @@ logger = get_logger(__name__)
 
 
 # ── Store number lookup ────────────────────────────────────────────────────────
+# Key   = normalised store name (upper-case, stripped)
+# Value = store_no string used on the eTIMS invoice
 STORE_NUMBER_MAP: dict[str, str] = {
-    "NAIVASHA KUBWA"            : "6",
-    "NAIVAS KUBWA"              : "6",
-    "NAIVASHA NDOGO"            : "1",
-    "NAIVAS NDOGO"              : "1",
-    "NAIVAS SUPERCENTER"        : "19",
-    "NAKURU MIDTOWN"            : "99",
-    "NAIVAS CENTRAL FRUITS&VEG" : "91",
-    "NAIVAS CENTRAL FRUITS"     : "91",
-    "NAIVAS SAFARI"             : "110",
-    "CLEANSHELF NAKURU"         : "CS1",
-    "SAFARI CENTER NAIVASHA"    : "110",
+    "NAIVASHA KUBWA"            : "6",    # LATEST INVOICE NO 014
+    "NAIVAS KUBWA"              : "6",    # LATEST INVOICE NO 014
+    "NAIVASHA NDOGO"            : "1",    # LATEST INVOICE NO 006
+    "NAIVAS NDOGO"              : "1",    # LATEST INVOICE NO 006
+    "NAIVAS SUPERCENTER"        : "19",   # LATEST INVOICE NO 003
+    "NAKURU WESTSIDE"           : "63",   # LATEST INVOICE NO 011
+    "NAKURU MIDTOWN"            : "99",   # LATEST INVOICE NO 004
+    "NAIVAS CENTRAL FRUITS&VEG" : "91",   # LATEST INVOICE NO 007
+    "NAIVAS CENTRAL FRUITS"     : "91",   # LATEST INVOICE NO 007
+    "NAIVAS SAFARI"             : "110",  # LATEST INVOICE NO 199
+    "CLEANSHELF NAKURU"         : "CS1",  # LATEST INVOICE NO 101
+    "SAFARI CENTER NAIVASHA"    : "110",  # LATEST INVOICE NO 199
+}
+
+# Seed values = last invoice number submitted *manually* (before automation).
+# The next automated invoice for each store will be seed + 1.
+# Keys must match the store_no values in STORE_NUMBER_MAP exactly.
+STORE_SEED_INVOICE: dict[str, int] = {
+    "6"   : 14,   # NAIVAS KUBWA / NAIVASHA KUBWA
+    "1"   : 6,    # NAIVAS NDOGO / NAIVASHA NDOGO
+    "19"  : 3,    # NAIVAS SUPERCENTER
+    "63"  : 11,   # NAKURU WESTSIDE
+    "99"  : 4,    # NAKURU MIDTOWN
+    "91"  : 7,    # NAIVAS CENTRAL FRUITS & VEG
+    "110" : 199,  # NAIVAS SAFARI / SAFARI CENTER NAIVASHA
+    "CS1" : 101,  # CLEANSHELF NAKURU
 }
 
 
 def get_store_no(store_name: str) -> str:
+    """Return the store number string for a given store name, or '?' if unknown."""
     if not store_name:
         return "?"
     key = store_name.strip().upper()
@@ -47,9 +81,51 @@ def get_store_no(store_name: str) -> str:
     return "?"
 
 
-def build_etims_payload(
+async def next_invoice_number(db: AsyncSession, store_no: str) -> int:
+    """
+    Return the next sequential invoice number for *store_no*.
+
+    Strategy (per-store, not global):
+      • Look up all invoice_number values already stored in etims_invoices
+        for this store_number, filter to purely numeric ones, take the max.
+      • If found  → next = max + 1
+      • If not    → next = STORE_SEED_INVOICE[store_no] + 1
+                    (falls back to 1 if the store has no seed entry)
+
+    Alphanumeric legacy values (e.g. "2065Q") are skipped so they never
+    corrupt the counter.
+    """
+    from app.db.models.etims_invoice import EtimsInvoice
+
+    result = await db.execute(
+        select(EtimsInvoice.invoice_number)
+        .where(
+            EtimsInvoice.store_number == store_no,
+            EtimsInvoice.invoice_number.is_not(None),
+        )
+    )
+    rows = result.scalars().all()
+
+    max_saved: int | None = None
+    for raw in rows:
+        try:
+            val = int(raw)
+            if max_saved is None or val > max_saved:
+                max_saved = val
+        except (TypeError, ValueError):
+            pass  # skip alphanumeric legacy values like "2065Q"
+
+    if max_saved is not None:
+        return max_saved + 1
+
+    seed = STORE_SEED_INVOICE.get(store_no, 0)
+    return seed + 1
+
+
+async def build_etims_payload(
     confirmed_data: dict,
     invoice_no: str,
+    db: AsyncSession,
     *,
     business_id:   uuid.UUID | None = None,
     branch_id:     uuid.UUID | None = None,
@@ -61,7 +137,10 @@ def build_etims_payload(
 
     Args:
         confirmed_data: the JSONB dict stored in grn.confirmed_data
-        invoice_no:     the invoice reference (grn.invoice_no)
+        invoice_no:     the GRN-level invoice reference (grn.invoice_no) — kept
+                        for backwards-compat but the sequential number now takes
+                        precedence in the remark and on the invoice header
+        db:             async DB session — needed to query the invoice counter
         business_id:    UUID of the resolved Business (from grn.business_id)
         branch_id:      UUID of the resolved Branch   (from grn.branch_id)
         business_name:  snapshot name for denormalisation
@@ -71,7 +150,9 @@ def build_etims_payload(
         invoice  – header dict for fill_kra.invoice_dict_to_receipt()
         items    – list of line-item dicts
         meta     – dict with business_id, branch_id, business_name,
-                   branch_name, invoice_amount
+                   branch_name, invoice_amount, store_number, invoice_number
+                   (caller MUST write invoice_number back to EtimsInvoice row
+                    so the counter advances correctly next time)
 
     Raises:
         ValueError if confirmed_data has no items
@@ -97,36 +178,45 @@ def build_etims_payload(
 
     store_no = get_store_no(resolved_store_name)
 
+    # ── Auto-increment invoice number for this store ──────────────────────────
+    seq_no = await next_invoice_number(db, store_no)
+    # Zero-pad to 3 digits to match existing format (006, 014, 199, …)
+    seq_no_str = str(seq_no).zfill(3)
+
+    logger.info(
+        "Invoice sequence: store_no=%s → next invoice_number=%s",
+        store_no, seq_no_str,
+    )
+
     # ── Build remark string ───────────────────────────────────────────────────
-    # FIX 3: remark format now exactly matches ReceiptHeader.remark property in fill_kra.py
     remark = (
         f"Order No.{confirmed_data.get('lpo_number', '')},"
         f"Delivery Note No.{confirmed_data.get('delivery_invoice_no', '')},"
         f"Grn No. {confirmed_data.get('receipt_voucher_no', '')},"
-        f"Invoice No.{invoice_no},"
+        f"Invoice No.{seq_no_str},"
         f"Store No {store_no}"
     )
+
+    # ── Buyer display name: "Business Name - Branch Name" ────────────────────
+    if resolved_store_name and resolved_store_name != resolved_business_name:
+        cust_nm = f"{resolved_business_name} - {resolved_store_name}"
+    else:
+        cust_nm = resolved_business_name
 
     # ── Invoice header ────────────────────────────────────────────────────────
     invoice = {
         "custTin"       : "P000000000A",
-        "custNm"        : resolved_business_name,
+        "custNm"        : cust_nm,
         "custBranchNm"  : resolved_store_name,
         "custMblNo"     : "0722000000",
         "custMblFornNo" : "",
         "pmtTyCd"       : "02",
         "remark"        : remark,
+        # Direct key so invoice_dict_to_receipt() doesn't have to re-parse remark
+        "invoice_no"    : seq_no_str,
     }
 
     # ── Line items ────────────────────────────────────────────────────────────
-    # FIX 5: use consistent key names that fill_kra.grn_to_receipt() /
-    # fill_kra.invoice_dict_to_receipt() both understand:
-    #   itemNm  (was itemNm  ✓ — mapper already used this, grn_to_receipt now reads it)
-    #   itemCd  (was itemCd  ✓)
-    #   qty     (float, not string — grn_to_receipt calls float() on it anyway,
-    #             but keeping as float avoids double-conversion surprises)
-    #   prc     (float, not string)
-    #   dcRt    (was "dcRt": "0" as a string — keep consistent with SaleItem.dc_rt float)
     items = []
     for raw in items_raw:
         if hasattr(raw, "model_dump"):
@@ -135,22 +225,26 @@ def build_etims_payload(
             "itemCd" : "",
             "itemNm" : raw.get("description", ""),
             "uom"    : raw.get("uom", "KG"),
-            "qty"    : float(raw.get("qty_received", 1)),   # FIX: float, not str
-            "prc"    : float(raw.get("unit_price", 0)),     # FIX: float, not str
-            "dcRt"   : 0.0,                                  # FIX: float, not "0"
+            "qty"    : float(raw.get("qty_received", 1)),
+            "prc"    : float(raw.get("unit_price", 0)),
+            "dcRt"   : 0.0,
         })
 
     # ── Meta: stamp onto EtimsInvoice row ─────────────────────────────────────
+    # store_number and invoice_number MUST be persisted by the caller so the
+    # counter keeps advancing correctly on the next submission for this store.
     meta = {
         "business_id"    : business_id,
         "branch_id"      : branch_id,
         "business_name"  : resolved_business_name,
         "branch_name"    : resolved_store_name,
         "invoice_amount" : float(confirmed_data.get("order_total") or 0),
+        "store_number"   : store_no,
+        "invoice_number" : seq_no_str,
     }
 
     logger.info(
-        "Built eTIMS payload: invoice_no=%s  business=%s  branch=%s  items=%d",
-        invoice_no, resolved_business_name, resolved_store_name, len(items),
+        "Built eTIMS payload: invoice_number=%s  store=%s  business=%s  branch=%s  items=%d",
+        seq_no_str, store_no, resolved_business_name, resolved_store_name, len(items),
     )
     return invoice, items, meta

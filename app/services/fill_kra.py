@@ -615,6 +615,10 @@ def invoice_dict_to_receipt(invoice: dict, items_list: list[dict]) -> ReceiptHea
         elif part.startswith("Store No"):
             store_no = part.split()[-1]
 
+    # Prefer the direct "invoice_no" key over what was parsed from the remark
+    # string — the remark roundtrip is lossy when invoice_no is None/empty.
+    resolved_inv_no = invoice.get("invoice_no") or inv_no
+
     return ReceiptHeader(
         cust_nm          = invoice.get("custNm",        ""),
         cust_tin         = invoice.get("custTin",       ""),
@@ -626,7 +630,7 @@ def invoice_dict_to_receipt(invoice: dict, items_list: list[dict]) -> ReceiptHea
         order_no         = order_no,
         delivery_note_no = delivery_note_no,
         grn_no           = grn_no,
-        invoice_no       = inv_no,
+        invoice_no       = resolved_inv_no,
         store_no         = store_no,
     )
 
