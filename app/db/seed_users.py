@@ -7,11 +7,7 @@ from app.db.base import Base  # Import your Base to access metadata
 from app.core.security import hash_password
 
 async def seed_users():
-    # ─── Create Database Schema ──────────────────────────────────────────
-    # This will create all tables defined in your models if they don't exist
-    print("Checking and creating database schema...")
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    
     
     users_data = [
         {
