@@ -66,7 +66,7 @@ def _order_items_to_grn_items(items) -> list:
     result = []
     for i, item in enumerate(items):
         if isinstance(item, dict):
-            qty   = float(item.get("quantity") or item.get("qty") or 0)
+            qty   = float(item.get("qty_ordered") or item.get("quantity") or item.get("qty") or 0)
             price = float(item.get("unit_price") or item.get("price") or 0)
             result.append({
                 "id":           str(item.get("id") or i + 1),

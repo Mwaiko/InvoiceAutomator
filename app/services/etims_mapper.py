@@ -178,6 +178,19 @@ async def build_etims_payload(
 
     store_no = get_store_no(resolved_store_name)
 
+    # ── Resolve business mobile number ────────────────────────────────────────
+    # Priority: Business.phone → Branch.phone → GRN store block → fallback
+    cust_mbl_no = "0722000000"   # safe fallback
+    if business_id:
+        from app.db.models.business import Business as BusinessModel, Branch as BranchModel
+        business_obj = await db.get(BusinessModel, business_id)
+        if business_obj and business_obj.phone:
+            cust_mbl_no = business_obj.phone
+        elif branch_id:
+            branch_obj = await db.get(BranchModel, branch_id)
+            if branch_obj and branch_obj.phone:
+                cust_mbl_no = branch_obj.phone
+
     seq_no = await next_invoice_number(db, store_no)
     # Zero-pad to 3 digits to match existing format (006, 014, 199, …)
     seq_no_str = str(seq_no).zfill(3)
@@ -207,7 +220,7 @@ async def build_etims_payload(
         "custTin"       : "P000000000A",
         "custNm"        : cust_nm,
         "custBranchNm"  : resolved_store_name,
-        "custMblNo"     : "0722000000",
+        "custMblNo"     : cust_mbl_no,
         "custMblFornNo" : "",
         "pmtTyCd"       : "07",
         "remark"        : remark,
