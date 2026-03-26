@@ -43,7 +43,6 @@ DEV_RECEIPT_DIR = os.environ.get("DEV_RECEIPT_DIR", "./dev_receipts")
 
 
 def _is_dev() -> bool:
-    """Return True when the app is running in development mode."""
     return os.environ.get("APP_ENV", "").strip().lower() == "development"
 
 
