@@ -178,7 +178,6 @@ async def build_etims_payload(
 
     store_no = get_store_no(resolved_store_name)
 
-    # ── Auto-increment invoice number for this store ──────────────────────────
     seq_no = await next_invoice_number(db, store_no)
     # Zero-pad to 3 digits to match existing format (006, 014, 199, …)
     seq_no_str = str(seq_no).zfill(3)
@@ -210,9 +209,8 @@ async def build_etims_payload(
         "custBranchNm"  : resolved_store_name,
         "custMblNo"     : "0722000000",
         "custMblFornNo" : "",
-        "pmtTyCd"       : "02",
+        "pmtTyCd"       : "07",
         "remark"        : remark,
-        # Direct key so invoice_dict_to_receipt() doesn't have to re-parse remark
         "invoice_no"    : seq_no_str,
     }
 

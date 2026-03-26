@@ -28,7 +28,6 @@ RETRY_DELAY_SECS  = 60
 
 
 def _get_etims_cfg() -> EtimsConfig:
-    """Build EtimsConfig from environment variables."""
     return EtimsConfig(
         pin      = os.environ["KRA_PIN"],
         branch   = os.environ.get("KRA_BRANCH", "001"),
@@ -62,11 +61,10 @@ async def submit_to_etims(grn_id: str, etims_invoice_id: str) -> dict:
             logger.error("submit_to_etims: EtimsInvoice %s not found", etims_invoice_id)
             return {"error": f"EtimsInvoice {etims_invoice_id} not found"}
 
-        # ── Build mapper payload ──────────────────────────────────────────────
         try:
             invoice_header, items_list, meta = await build_etims_payload(
                 confirmed_data = grn.confirmed_data,
-                invoice_no     = grn.invoice_no or "",
+                invoice_no     = grn.invoice_no,
                 db             = db,
                 business_id    = grn.business_id,
                 branch_id      = grn.branch_id,
@@ -91,7 +89,6 @@ async def submit_to_etims(grn_id: str, etims_invoice_id: str) -> dict:
             meta["invoice_number"], meta["store_number"], etims_invoice_id,
         )
 
-        # ── Convert mapper dicts → ReceiptHeader / SaleItem objects ──────────
         try:
             receipt_header = invoice_dict_to_receipt(invoice_header, items_list)
         except ValueError as exc:
@@ -101,7 +98,6 @@ async def submit_to_etims(grn_id: str, etims_invoice_id: str) -> dict:
             await db.commit()
             return {"error": str(exc)}
 
-        # ── Submit to KRA with retry loop ─────────────────────────────────────
         cfg         = _get_etims_cfg()
         last_error  = None
 
