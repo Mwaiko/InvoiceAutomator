@@ -217,7 +217,7 @@ async def build_etims_payload(
 
     # ── Invoice header ────────────────────────────────────────────────────────
     invoice = {
-        "custTin"       : "P000000000A",
+        "custTin"       : "",
         "custNm"        : cust_nm,
         "custBranchNm"  : resolved_store_name,
         "custMblNo"     : cust_mbl_no,

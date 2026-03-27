@@ -174,7 +174,6 @@ async def submit_to_etims(grn_id: str, etims_invoice_id: str) -> dict:
         return first_result
 
 
-# ── Development-mode helper ───────────────────────────────────────────────────
 
 async def _dev_mode_pdf(
     grn_id: str,
