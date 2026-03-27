@@ -11,6 +11,10 @@ GET    /grns/{id}                 – get single GRN
 POST   /grns/{id}/confirm         – operator confirms; resolves business/branch HERE,
                                     then updates invoiced totals + creates eTIMS invoice
 POST   /grns/{id}/reject          – reject a GRN
+POST   /grns/{id}/retry-invoice   – retry eTIMS submission for a confirmed GRN whose
+                                    last EtimsInvoice ended up in rejected/failed state.
+                                    Resets the invoice to pending and re-dispatches
+                                    submit_to_etims as a background task.
 """
 
 import logging
@@ -330,6 +334,129 @@ async def reject_grn(
     grn.status           = GRNStatus.rejected
     grn.rejection_reason = body.reason
     await db.commit()
+
+    grn = await _get_grn_with_uploader(db, grn.id)
+    return GRNResponse.from_orm_grn(grn)
+
+
+@router.post("/{grn_id}/retry-invoice", response_model=GRNResponse)
+async def retry_invoice(
+    grn_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = None,
+):
+    """
+    Retry eTIMS submission for a GRN that is stuck in `confirmed` status
+    because its previous EtimsInvoice was rejected / errored.
+
+    Rules
+    ─────
+    • The GRN **must** be in `confirmed` status.  If it is already `invoiced`
+      (meaning a prior attempt actually succeeded at KRA), the request is
+      rejected with 409 to prevent duplicate submissions.
+    • We look for the most recent EtimsInvoice for this GRN.
+        – If one exists and its status is `rejected` (or any non-submitted
+          terminal state), we reset it to `pending` and re-use it.
+        – If none exists (edge case: confirm endpoint crashed before flush)
+          we create a fresh EtimsInvoice identical to what confirm_grn would
+          have created, so the retry is self-healing.
+    • The GRN status is left as `confirmed` — submit_to_etims will flip it
+      to `invoiced` on success, exactly as it does after the first attempt.
+    • The background task is dispatched after the DB commit so the HTTP
+      response is returned immediately.
+    """
+    grn = await _get_grn_with_uploader(db, grn_id)
+
+    # ── Guard: only confirmed GRNs can be retried ─────────────────────────────
+    if grn.status == GRNStatus.invoiced:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "This GRN has already been successfully invoiced. "
+                "Retry is not permitted to avoid duplicate KRA submissions."
+            ),
+        )
+    if grn.status != GRNStatus.confirmed:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Cannot retry a GRN in '{grn.status.value}' status. "
+                "Only confirmed GRNs are eligible for invoice retry."
+            ),
+        )
+
+    # ── Fetch or create the EtimsInvoice row ──────────────────────────────────
+    inv_result = await db.execute(
+        select(EtimsInvoice)
+        .where(EtimsInvoice.grn_id == grn.id)
+        .order_by(EtimsInvoice.created_at.desc())
+        .limit(1)
+    )
+    etims_inv: EtimsInvoice | None = inv_result.scalar_one_or_none()
+
+    if etims_inv is not None:
+        # Reset the existing invoice so submit_to_etims processes it fresh.
+        # We deliberately keep store_number / invoice_number so the sequence
+        # counter is NOT re-rolled — the same number will be re-submitted.
+        # If you want a new sequence number on retry, clear those fields here.
+        etims_inv.status        = EtimsStatus.pending
+        etims_inv.error_message = None
+        etims_inv.kra_response  = None
+        # submitted_by tracks who triggered this retry
+        if user:
+            etims_inv.submitted_by_id = user.id
+        logger.info(
+            "retry_invoice: resetting EtimsInvoice %s → pending for GRN %s",
+            etims_inv.id, grn_id,
+        )
+    else:
+        # Edge case: no invoice row exists. Reconstruct from confirmed_data
+        # using the same logic as confirm_grn so the mapper has what it needs.
+        confirmed_dict = grn.confirmed_data or {}
+        order_total    = float(confirmed_dict.get("order_total") or 0)
+
+        # Snapshot business / branch names from the ORM objects if available
+        business_name: str | None = None
+        branch_name:   str | None = None
+        if grn.business_id:
+            from app.db.models.business import Business as BusinessModel, Branch as BranchModel
+            biz = await db.get(BusinessModel, grn.business_id)
+            if biz:
+                business_name = biz.name
+            if grn.branch_id:
+                br = await db.get(BranchModel, grn.branch_id)
+                if br:
+                    branch_name = br.branch_name
+
+        etims_inv = EtimsInvoice(
+            grn_id          = grn.id,
+            status          = EtimsStatus.pending,
+            submitted_by_id = user.id if user else None,
+            business_id     = grn.business_id,
+            branch_id       = grn.branch_id,
+            business_name   = business_name,
+            branch_name     = branch_name,
+            invoice_amount  = order_total,
+            amount_paid     = 0,
+        )
+        db.add(etims_inv)
+        await db.flush()   # assign .id before we pass it to the background task
+        logger.info(
+            "retry_invoice: created new EtimsInvoice %s for GRN %s (no prior invoice found)",
+            etims_inv.id, grn_id,
+        )
+
+    await db.commit()
+
+    # ── Dispatch background task ──────────────────────────────────────────────
+    from app.workers.etims_tasks import submit_to_etims
+    background_tasks.add_task(submit_to_etims, str(grn.id), str(etims_inv.id))
+
+    logger.info(
+        "retry_invoice: dispatched submit_to_etims for GRN %s / EtimsInvoice %s",
+        grn_id, etims_inv.id,
+    )
 
     grn = await _get_grn_with_uploader(db, grn.id)
     return GRNResponse.from_orm_grn(grn)
