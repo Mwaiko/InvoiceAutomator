@@ -346,29 +346,44 @@ def _submit_receipt(
 
 def _extract_kracu(response: dict) -> str:
     """
-    Pull the KRACU invoice number out of the KRA portal's JSON response.
+    Pull the confirmed invoice number out of the KRA portal's JSON response.
 
-    The portal returns the confirmed invoice number in one of these keys
-    (tried in priority order):
-      cuInvcNo  →  e.g. "KRACU0200021805/388"   (most common)
-      invcNo
-      data.cuInvcNo  (nested)
-    Returns an empty string if not found.
+    Priority order (first non-empty match wins):
+      1. cuInvcNo  starting with "KRACU"  (e.g. "KRACU0200021805/388")
+      2. invcNo    starting with "KRACU"
+      3. data.cuInvcNo / data.invcNo  starting with "KRACU"  (nested)
+      4. cuInvcNo  — any value, KRACU prefix not required
+      5. invcNo    — any value, KRACU prefix not required (plain number e.g. "388")
+      6. Same fallbacks nested under "data"
+
+    The fallback tiers (4-6) ensure that even when KRA returns a plain
+    integer invoice number instead of the full KRACU string, we still
+    persist something usable as the ?invcNo= query parameter for the
+    PDF-download endpoint.  An empty string is returned only when the
+    response contains no invoice number at all.
     """
     if not isinstance(response, dict):
         return ""
 
-    for key in ("cuInvcNo", "invcNo"):
-        val = response.get(key, "")
-        if val and str(val).upper().startswith("KRACU"):
-            return str(val).strip()
+    def _sources() -> list[dict]:
+        sources = [response]
+        data = response.get("data")
+        if isinstance(data, dict):
+            sources.append(data)
+        return sources
 
-    # nested under "data"
-    data = response.get("data") or {}
-    if isinstance(data, dict):
+    # Pass 1 — prefer values that start with "KRACU" (authoritative)
+    for src in _sources():
         for key in ("cuInvcNo", "invcNo"):
-            val = data.get(key, "")
-            if val and str(val).upper().startswith("KRACU"):
+            val = src.get(key, "")
+            if val and str(val).strip().upper().startswith("KRACU"):
+                return str(val).strip()
+
+    # Pass 2 — fall back to any non-empty value for cuInvcNo / invcNo
+    for src in _sources():
+        for key in ("cuInvcNo", "invcNo"):
+            val = src.get(key, "")
+            if val and str(val).strip():
                 return str(val).strip()
 
     return ""
