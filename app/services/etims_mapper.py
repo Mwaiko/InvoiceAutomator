@@ -43,7 +43,8 @@ STORE_NUMBER_MAP: dict[str, str] = {
     "NAIVAS KUBWA"              : "6",    # LATEST INVOICE NO 014
     "NAIVASHA NDOGO"            : "1",    # LATEST INVOICE NO 006
     "NAIVAS NDOGO"              : "1",    # LATEST INVOICE NO 006
-    "NAIVAS SUPERCENTER"        : "19",   # LATEST INVOICE NO 003
+    "NAIVAS SUPERCENTER"        : "19",   # LATEST INVOICE NO 004
+    "NAKURU SUPERCENTRE"        : "19",   # LATEST INVOICE NO 004
     "NAKURU WESTSIDE"           : "63",   # LATEST INVOICE NO 011
     "NAKURU MIDTOWN"            : "99",   # LATEST INVOICE NO 004
     "NAIVAS CENTRAL FRUITS&VEG" : "91",   # LATEST INVOICE NO 007
@@ -59,7 +60,7 @@ STORE_NUMBER_MAP: dict[str, str] = {
 STORE_SEED_INVOICE: dict[str, int] = {
     "6"   : 14,   # NAIVAS KUBWA / NAIVASHA KUBWA
     "1"   : 6,    # NAIVAS NDOGO / NAIVASHA NDOGO
-    "19"  : 3,    # NAIVAS SUPERCENTER
+    "19"  : 4,    # NAIVAS SUPERCENTER
     "63"  : 11,   # NAKURU WESTSIDE
     "99"  : 4,    # NAKURU MIDTOWN
     "91"  : 7,    # NAIVAS CENTRAL FRUITS & VEG

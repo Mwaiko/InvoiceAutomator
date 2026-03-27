@@ -16,6 +16,7 @@ Changes:
   • payment_summary → aggregates outstanding amounts per business
 """
 
+import asyncio
 import uuid
 from typing import List, Optional
 
@@ -127,6 +128,94 @@ async def get_invoice(
     if not inv:
         raise NotFoundError(f"eTIMS Invoice {invoice_id} not found")
     return inv
+
+
+# ── Stream KRA receipt PDF ────────────────────────────────────────────────────
+
+@router.get("/{invoice_id}/pdf")
+async def download_invoice_pdf(
+    invoice_id: uuid.UUID,
+    _user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Authenticates with the KRA portal, streams the sales receipt PDF
+    directly back to the caller.  Requires inv.kra_invoice_no to be set
+    (i.e. the invoice must have been accepted by KRA).
+    """
+    import os
+    from fastapi.responses import StreamingResponse
+    from app.services.fill_kra import EtimsConfig, KraError, login, _make_session
+
+    inv = await db.get(EtimsInvoice, invoice_id)
+    if not inv:
+        raise NotFoundError(f"eTIMS Invoice {invoice_id} not found")
+
+    if not inv.kra_invoice_no:
+        raise HTTPException(
+            status_code=400,
+            detail="Invoice does not have a KRA invoice number yet. "
+                   "Wait for KRA approval before downloading the receipt.",
+        )
+
+    cfg = EtimsConfig(
+        pin      = os.environ["KRA_PIN"],
+        branch   = os.environ.get("KRA_BRANCH", "001"),
+        username = os.environ["KRA_USERNAME"],
+        password = os.environ["KRA_PASSWORD"],
+    )
+
+    session = _make_session()
+    try:
+        await asyncio.to_thread(login, cfg, session)
+    except KraError as exc:
+        raise HTTPException(status_code=502, detail=f"KRA login failed: {exc}")
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Failed to authenticate with KRA: {exc}")
+
+    pdf_url = f"{cfg.base_url}/app/ebm/trns/sales/printTrnsSalesReceipt"
+    hdrs = {
+        "Accept":           "application/pdf,text/html,*/*;q=0.9",
+        "Referer":          f"{cfg.base_url}/app/ebm/trns/sales/indexTrnsSalesReceipt",
+        "Sec-Fetch-Dest":   "document",
+        "Sec-Fetch-Mode":   "navigate",
+        "Sec-Fetch-Site":   "same-origin",
+    }
+
+    try:
+        kra_resp = await asyncio.to_thread(
+            lambda: session.get(
+                pdf_url,
+                params={"invcNo": inv.kra_invoice_no},
+                headers=hdrs,
+                timeout=30,
+                stream=True,
+            )
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"KRA request failed: {exc}")
+
+    if not kra_resp.ok:
+        raise HTTPException(
+            status_code=502,
+            detail=f"KRA returned HTTP {kra_resp.status_code} for invoice {inv.kra_invoice_no}",
+        )
+
+    content_type = kra_resp.headers.get("Content-Type", "application/pdf")
+    safe_name = inv.kra_invoice_no.replace("/", "_").replace("\\", "_")
+
+    def _iter_chunks():
+        for chunk in kra_resp.iter_content(chunk_size=8192):
+            if chunk:
+                yield chunk
+
+    return StreamingResponse(
+        _iter_chunks(),
+        media_type=content_type if "pdf" in content_type else "application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="Receipt_{safe_name}.pdf"',
+        },
+    )
 
 
 # ── Retry rejected ────────────────────────────────────────────────────────────
