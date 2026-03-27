@@ -27,7 +27,7 @@ from app.db.models.etims_invoice import EtimsInvoice, EtimsStatus
 from app.db.models.grn import GRN,GRNStatus
 from app.db.session import AsyncSessionLocal          # async session — no Celery sync needed
 from app.services.etims_mapper import build_etims_payload
-from app.services.fill_kra import EtimsConfig, KraError, invoice_dict_to_receipt, run_fill
+from app.services.fill_kra import EtimsConfig, KraError, invoice_dict_to_receipt, run_fill, _extract_kracu
 from dotenv import load_dotenv
 from pathlib import Path
 env_path = Path(__file__).resolve().parent.parent.parent / '.env'
@@ -160,7 +160,23 @@ async def submit_to_etims(grn_id: str, etims_invoice_id: str) -> dict:
         if first_result.get("status") == "ok":
             inv.status       = EtimsStatus.submitted
             grn.status       = GRNStatus.invoiced
-            inv.kra_response = first_result.get("response")
+            raw_response     = first_result.get("response")
+            inv.kra_response = raw_response
+            # Extract and persist the KRACU invoice number (e.g. "KRACU0200021805/388")
+            # so the /pdf download endpoint has it immediately after submission.
+            kracu = _extract_kracu(raw_response) if isinstance(raw_response, dict) else ""
+            if kracu:
+                inv.kra_invoice_no = kracu
+                logger.info(
+                    "submit_to_etims: KRA invoice number saved  kra_invoice_no=%s  for EtimsInvoice %s",
+                    kracu, etims_invoice_id,
+                )
+            else:
+                logger.warning(
+                    "submit_to_etims: KRA accepted the receipt but returned no cuInvcNo "
+                    "for EtimsInvoice %s — raw response: %s",
+                    etims_invoice_id, str(raw_response)[:300],
+                )
         else:
             inv.status        = EtimsStatus.rejected
             inv.error_message = first_result.get("error", "unknown error")
