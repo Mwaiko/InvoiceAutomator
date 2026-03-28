@@ -186,3 +186,5 @@ The services layer imports them directly. No modification needed.
 2. Add Order model + CRUD endpoints
 3. Add sync endpoint (`GET /sync?last_sync=timestamp`) for Flutter
 4. Wire eTIMS REST API (when available) to replace Selenium
+
+&& python -m app.db.seed_users

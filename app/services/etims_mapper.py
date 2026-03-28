@@ -179,6 +179,18 @@ async def build_etims_payload(
 
     store_no = get_store_no(resolved_store_name)
 
+    # ── Fall back to Branch.store_number if name lookup failed ───────────────
+    if store_no == "?" and branch_id:
+        from app.db.models.business import Branch as BranchModel
+        _branch = await db.get(BranchModel, branch_id)
+        if _branch and _branch.store_number:
+            store_no = _branch.store_number
+            logger.info(
+                "store name %r not in STORE_NUMBER_MAP — "
+                "using branch.store_number=%r instead",
+                resolved_store_name, store_no,
+            )
+
     # ── Resolve business mobile number ────────────────────────────────────────
     # Priority: Business.phone → Branch.phone → GRN store block → fallback
     cust_mbl_no = "0722000000"   # safe fallback
