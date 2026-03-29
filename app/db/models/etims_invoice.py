@@ -18,6 +18,7 @@ class PaymentStatus(str, enum.Enum):
     pending = "pending"
     paid    = "paid"
 
+
 class EtimsInvoice(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "etims_invoices"
 
@@ -25,100 +26,64 @@ class EtimsInvoice(UUIDMixin, TimestampMixin, Base):
     grn_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("grns.id", ondelete="SET NULL"), index=True
     )
-    # Human-readable GRN reference (e.g. "NVS-007602248") — the store's own GRN number
-    # extracted from the delivery note / statement.  Stored as a plain string so it
-    # survives GRN deletion and can be printed directly on the eTIMS invoice export.
     grn_number: Mapped[str | None] = mapped_column(
-        String(100),
-        nullable=True,
-        index=True,
+        String(100), nullable=True, index=True,
         comment="Store-side GRN reference, e.g. NVS-007602248",
     )
-
-    # ── Store number (assigned by the branch/chain, not our system) ───────────
-    # Matches the SNO column in the supplier's statement spreadsheet (col I).
-    # Stored as a string to handle values like '2065Q' seen in real data.
     store_number: Mapped[str | None] = mapped_column(
-        String(50),
-        nullable=True,
+        String(50), nullable=True,
         comment="Branch-assigned store number, e.g. 110, 6, 99, 2065Q",
     )
-
-    # ── Supplier's own sequential invoice number ───────────────────────────────
-    # The running invoice number from the supplier's statement (col H in the
-    # Quality Outsource spreadsheet: 1945, 2063, '2065Q', …).  Nullable because
-    # older records pre-date this field and it may also not apply to every flow.
     invoice_number: Mapped[str | None] = mapped_column(
-        String(100),
-        nullable=True,
-        index=True,
+        String(100), nullable=True, index=True,
         comment="Supplier's sequential invoice number, e.g. 2063 or 2065Q",
     )
 
     # ── Business / Branch (denormalised for financial reporting) ──────────────
     business_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("businesses.id", ondelete="SET NULL"),
-        nullable=True,
-        index=True,
+        UUID(as_uuid=True), ForeignKey("businesses.id", ondelete="SET NULL"),
+        nullable=True, index=True,
     )
     branch_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("branches.id", ondelete="SET NULL"),
-        nullable=True,
-        index=True,
+        UUID(as_uuid=True), ForeignKey("branches.id", ondelete="SET NULL"),
+        nullable=True, index=True,
     )
-    # Snapshot names — kept even if the business/branch is renamed later
     business_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     branch_name:   Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     # ── eTIMS submission state ─────────────────────────────────────────────────
     status: Mapped[EtimsStatus] = mapped_column(
-        Enum(EtimsStatus),
-        nullable=False,
-        default=EtimsStatus.pending,
-        index=True,
+        Enum(EtimsStatus), nullable=False, default=EtimsStatus.pending, index=True,
     )
     payment_status: Mapped[PaymentStatus] = mapped_column(
         Enum(PaymentStatus, name="payment_status_new"),
-        nullable=False,
-        default=PaymentStatus.pending,
+        nullable=False, default=PaymentStatus.pending,
     )
     invoice_amount: Mapped[float | None] = mapped_column(
         nullable=True,
         comment="Snapshot of confirmed GRN order_total at time of invoice creation",
     )
     amount_paid: Mapped[float] = mapped_column(
-        default=0,
-        nullable=False,
-        server_default="0",
+        default=0, nullable=False, server_default="0",
         comment="Running total of payments received against this invoice",
     )
 
     # ── Payload sent to KRA ───────────────────────────────────────────────────
-    payload: Mapped[dict | None] = mapped_column(JSONB)
-
-    # ── KRA response ──────────────────────────────────────────────────────────
-    kra_response:   Mapped[dict | None] = mapped_column(JSONB)
-    kra_invoice_no: Mapped[str | None]  = mapped_column(String(100))
-
-    # ── Local PDF copy of invoice ─────────────────────────────────────────────
-    invoice_pdf_path: Mapped[str | None] = mapped_column(String(1000))
-
-    # ── Error tracking ────────────────────────────────────────────────────────
-    error_message: Mapped[str | None] = mapped_column(Text)
-    retry_count:   Mapped[int]        = mapped_column(Integer, default=0, nullable=False)
-
-    # ── Who triggered this ────────────────────────────────────────────────────
-    submitted_by_id: Mapped[uuid.UUID | None] = mapped_column(
+    payload:          Mapped[dict | None] = mapped_column(JSONB)
+    kra_response:     Mapped[dict | None] = mapped_column(JSONB)
+    kra_invoice_no:   Mapped[str | None]  = mapped_column(String(100))
+    invoice_pdf_path: Mapped[str | None]  = mapped_column(String(1000))
+    error_message:    Mapped[str | None]  = mapped_column(Text)
+    retry_count:      Mapped[int]         = mapped_column(Integer, default=0, nullable=False)
+    submitted_by_id:  Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
     )
 
     # ── Relationships ──────────────────────────────────────────────────────────
-    business: Mapped["Business | None"] = relationship(   # type: ignore[name-defined]
+    business: Mapped["Business | None"] = relationship(  # type: ignore[name-defined]
         "Business", foreign_keys=[business_id]
     )
-    branch: Mapped["Branch | None"] = relationship(       # type: ignore[name-defined]
+    branch: Mapped["Branch | None"] = relationship(      # type: ignore[name-defined]
         "Branch", foreign_keys=[branch_id]
     )
 
@@ -131,15 +96,36 @@ class EtimsInvoice(UUIDMixin, TimestampMixin, Base):
 
     def recalculate_payment_status(self) -> None:
         """
-        Call after any payment is recorded to keep payment_status consistent.
+        Single source of truth when a payment amount is recorded.
+        Always call this after mutating amount_paid.
+
+        Rules:
+          paid <= 0        → pending  (amount_paid clamped to 0)
+          0 < paid < total → pending  (stays pending until fully covered)
+          paid >= total    → paid     (amount_paid clamped to invoice_amount — no overpayment)
         """
         total = float(self.invoice_amount or 0)
         paid  = float(self.amount_paid    or 0)
 
         if paid <= 0:
             self.payment_status = PaymentStatus.pending
+            self.amount_paid    = 0.0
         elif paid >= total:
             self.payment_status = PaymentStatus.paid
+            self.amount_paid    = total  # clamp — never exceed invoice_amount
+
+    def sync_from_status(self) -> None:
+        """
+        Inverse of recalculate_payment_status(). Call this when payment_status
+        is force-set via the manual override endpoint so amount_paid matches.
+
+          paid    → amount_paid = invoice_amount
+          pending → amount_paid = 0
+        """
+        if self.payment_status == PaymentStatus.paid:
+            self.amount_paid = float(self.invoice_amount or 0)
+        elif self.payment_status == PaymentStatus.pending:
+            self.amount_paid = 0.0
 
     def __repr__(self) -> str:
         return (

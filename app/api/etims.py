@@ -7,13 +7,6 @@ GET    /etims-invoices/{id}                – get single invoice
 POST   /etims-invoices/{id}/retry          – re-queue a rejected invoice
 PATCH  /etims-invoices/{id}/payment        – record a payment amount
 PATCH  /etims-invoices/{id}/payment-status – force-override payment status
-
-Changes:
-  • Celery removed — retry endpoint now uses FastAPI BackgroundTasks.
-  • list_invoices → supports ?business_id= and ?branch_id= filters
-  • record_payment → increments amount_paid, calls recalculate_payment_status(),
-    and also updates the linked Business.total_paid + Branch.total_paid
-  • payment_summary → aggregates outstanding amounts per business
 """
 
 import asyncio
@@ -43,10 +36,10 @@ router = APIRouter(prefix="/etims-invoices", tags=["etims"])
 async def list_invoices(
     pagination: PaginationDep,
     _user: CurrentUser,
-    status: Optional[EtimsStatus]        = None,
+    status: Optional[EtimsStatus]           = None,
     payment_status: Optional[PaymentStatus] = None,
-    business_id: Optional[uuid.UUID]     = None,
-    branch_id:   Optional[uuid.UUID]     = None,
+    business_id: Optional[uuid.UUID]        = None,
+    branch_id:   Optional[uuid.UUID]        = None,
     db: AsyncSession = Depends(get_db),
 ):
     q = select(EtimsInvoice).order_by(EtimsInvoice.created_at.desc())
@@ -84,12 +77,10 @@ async def payment_summary(
             func.sum(EtimsInvoice.invoice_amount).label("total_invoiced"),
             func.sum(EtimsInvoice.amount_paid).label("total_paid"),
             func.count(EtimsInvoice.id).label("invoice_count"),
-            func.count(
-                EtimsInvoice.id
-            ).filter(
-                EtimsInvoice.payment_status.in_([
-                    PaymentStatus.unpaid, PaymentStatus.partially_paid
-                ])
+            # FIX: was referencing PaymentStatus.unpaid / partially_paid which don't
+            # exist in the enum. Only 'pending' and 'paid' are valid values.
+            func.count(EtimsInvoice.id).filter(
+                EtimsInvoice.payment_status == PaymentStatus.pending
             ).label("unpaid_count"),
         )
         .where(EtimsInvoice.business_id.is_not(None))
@@ -138,11 +129,6 @@ async def download_invoice_pdf(
     _user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Authenticates with the KRA portal, streams the sales receipt PDF
-    directly back to the caller.  Requires inv.kra_invoice_no to be set
-    (i.e. the invoice must have been accepted by KRA).
-    """
     import os
     from fastapi.responses import StreamingResponse
     from app.services.fill_kra import EtimsConfig, KraError, login, _make_session
@@ -175,11 +161,11 @@ async def download_invoice_pdf(
 
     pdf_url = f"{cfg.base_url}/app/ebm/trns/sales/printTrnsSalesReceipt"
     hdrs = {
-        "Accept":           "application/pdf,text/html,*/*;q=0.9",
-        "Referer":          f"{cfg.base_url}/app/ebm/trns/sales/indexTrnsSalesReceipt",
-        "Sec-Fetch-Dest":   "document",
-        "Sec-Fetch-Mode":   "navigate",
-        "Sec-Fetch-Site":   "same-origin",
+        "Accept":         "application/pdf,text/html,*/*;q=0.9",
+        "Referer":        f"{cfg.base_url}/app/ebm/trns/sales/indexTrnsSalesReceipt",
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "same-origin",
     }
 
     try:
@@ -212,9 +198,7 @@ async def download_invoice_pdf(
     return StreamingResponse(
         _iter_chunks(),
         media_type=content_type if "pdf" in content_type else "application/pdf",
-        headers={
-            "Content-Disposition": f'attachment; filename="Receipt_{safe_name}.pdf"',
-        },
+        headers={"Content-Disposition": f'attachment; filename="Receipt_{safe_name}.pdf"'},
     )
 
 
@@ -223,7 +207,7 @@ async def download_invoice_pdf(
 @router.post("/{invoice_id}/retry", response_model=EtimsInvoiceResponse)
 async def retry_invoice(
     invoice_id: uuid.UUID,
-    background_tasks: BackgroundTasks,          # ← replaces Celery queue
+    background_tasks: BackgroundTasks,
     _user: AccountantOrAdmin,
     db: AsyncSession = Depends(get_db),
 ):
@@ -243,7 +227,6 @@ async def retry_invoice(
     await db.commit()
     await db.refresh(inv)
 
-    # ── Schedule eTIMS re-submission as a background task (no Celery) ─────────
     from app.workers.etims_tasks import submit_to_etims
     background_tasks.add_task(submit_to_etims, str(inv.grn_id), str(inv.id))
 
@@ -263,9 +246,9 @@ async def record_payment(
     Record a payment received against this invoice.
 
     • Increments amount_paid on the EtimsInvoice.
-    • Auto-recalculates payment_status (unpaid → partially_paid → paid → overpaid).
-    • Also increments total_paid on the linked Business and Branch so the
-      business-level outstanding_balance stays accurate.
+    • Calls recalculate_payment_status() which keeps payment_status and
+      amount_paid in sync (clamps amount_paid to invoice_amount on full payment).
+    • Also increments total_paid on the linked Business and Branch.
     """
     inv = await db.get(EtimsInvoice, invoice_id)
     if not inv:
@@ -277,11 +260,16 @@ async def record_payment(
             detail="Invoice is already fully paid. Use the manual override endpoint if needed.",
         )
 
-    # ── Update invoice running total ──────────────────────────────────────
+    # ── Update invoice running total then recalculate status ─────────────────
     inv.amount_paid = float(inv.amount_paid or 0) + payload.amount
-    inv.recalculate_payment_status()
+    inv.recalculate_payment_status()  # also clamps amount_paid and sets payment_status
 
     # ── Mirror payment onto Business + Branch totals ───────────────────────
+    # Use the actual amount credited (post-clamp) to avoid double-counting
+    amount_credited = float(inv.amount_paid) - (float(inv.amount_paid) - payload.amount
+                                                  if payload.amount <= float(inv.invoice_amount or 0)
+                                                  else float(inv.invoice_amount or 0) - (float(inv.amount_paid) - payload.amount))
+
     if inv.business_id:
         from app.db.models.business import Business as BusinessModel
         business_obj = await db.get(BusinessModel, inv.business_id)
@@ -309,14 +297,19 @@ async def update_payment_status(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Manually override payment_status. Use sparingly — prefer record_payment
-    which keeps amount_paid and payment_status in sync automatically.
+    Manually override payment_status. Also syncs amount_paid to match:
+      paid    → amount_paid = invoice_amount
+      pending → amount_paid = 0
+
+    This keeps both fields consistent regardless of how the status was set.
     """
     inv = await db.get(EtimsInvoice, invoice_id)
     if not inv:
         raise NotFoundError(f"eTIMS Invoice {invoice_id} not found")
 
     inv.payment_status = payload.payment_status
+    inv.sync_from_status()  # FIX: was missing — amount_paid was never updated on override
+
     await db.commit()
     await db.refresh(inv)
     return inv

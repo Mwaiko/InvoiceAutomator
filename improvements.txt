@@ -1,0 +1,2 @@
+Auto Refresh or Reload when switching screens it just sends the new saves the previous(backend repos)
+Pre-Generated instance haaving the full data of the grn before submission
