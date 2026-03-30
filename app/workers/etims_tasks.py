@@ -165,6 +165,7 @@ async def submit_to_etims(grn_id: str, etims_invoice_id: str) -> dict:
         for attempt in range(1, MAX_RETRIES + 1):
             try:
                 results    = await asyncio.to_thread(run_fill, cfg, receipt_header)
+                logger.info("Submission To Etims RESPONSE : %s",results)
                 last_error = None
                 break
             except KraError as exc:
