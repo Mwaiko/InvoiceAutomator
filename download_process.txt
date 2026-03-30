@@ -1,0 +1,118 @@
+curl 'https://etims.kra.go.ke/app/ebm/trns/sales/trnsSalesReceiptList' \
+  -H 'Accept: text/html, */*; q=0.01' \
+  -H 'Accept-Language: en-US,en;q=0.9' \
+  -H 'Connection: keep-alive' \
+  -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' \
+  -b 'BIGipServer~k8sprd02~Shared~etims_portal_8080_etims_prod_etims_kra_go_ke=51502090.36895.0000; JSESSIONID=F351A362E9C647C39601F0E4797AC0FC' \
+  -H 'Origin: https://etims.kra.go.ke' \
+  -H 'Referer: https://etims.kra.go.ke/app/ebm/trns/sales/indexTrnsSalesReceipt' \
+  -H 'Sec-Fetch-Dest: empty' \
+  -H 'Sec-Fetch-Mode: cors' \
+  -H 'Sec-Fetch-Site: same-origin' \
+  -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36' \
+  -H 'X-Requested-With: XMLHttpRequest' \
+  -H 'sec-ch-ua: "Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "Linux"' \
+  --data-raw 'page=1&dtDiv=D&startDt=30%2F03%2F2026&endDt=30%2F03%2F2026&invcNo=&rcptTyCd='
+
+
+
+
+<script type="text/javascript">
+$(document).ready(function(){
+    // Attach event listener to contextmenu event
+    $(document).on("contextmenu", function(e){
+        // Prevent default behavior
+        e.preventDefault();
+    });
+});
+</script>
+<script type="text/javascript">
+
+	$(document).ready(function(){
+	});
+
+	$(function(){
+	});
+
+</script>
+<div class="col-md-12">
+	<div class="tbl_type3">
+	<table class="" cellspacing="0" summary="Invoice number,Receipt number,Buyer Name,Sale date,Receipt type,Total Item Count,Total Taxable Amount,VAT,Summary Amount">
+		<caption>Receipt Information</caption>
+	    <colgroup>
+	        
+				
+				
+					<col style="width:10%">
+			        <col style="width:10%">
+			        <col style="width:10%">
+			        <col style="width:10%">
+			        <col style="width:10%">
+			        <col style="width:10%">
+			        <col style="width:10%">
+			        <col style="width:10%">
+			        <col style="width:10%">
+				
+			
+	    </colgroup>
+	    <thead>
+	    	<tr>
+	    		<th scope="col">Invoice number</th>
+	    		<th scope="col">Receipt number</th>
+	    		<th scope="col">Buyer Name</th>
+	    		<th scope="col">Sale date</th>
+	    		<th scope="col">Receipt type</th>
+	    		<th scope="col">Total Item Count</th>
+	    		<th scope="col">Total Taxable Amount</th>
+	    		<th scope="col">VAT</th>
+	    		<th scope="col">Summary Amount</th>
+	    	</tr>
+	    </thead>
+	    <tbody>
+	    	
+	    	
+	        <tr>
+	            <td scope="row">
+	            	<a href="javascript:trnsSalesReceiptList.viewInvoicePopup('P051621945B', '00', '439');">439</a>
+	            </td>
+	            <td>
+            		
+            			<a href="javascript:trnsSalesReceiptList.viewReceiptPopup('P051621945B', '00', '439', '439');">439</a>
+            		
+	            </td>
+	            <td class="text-left">Naivas Limited - NAKURU SUPERCENTRE</td>
+	            <td>30/03/2026</td>
+	            <td>Invoice</td>
+	            <td>4</td>
+	            <td class="text-right">1,935</td>
+	            <td class="text-right">0</td>
+	            <td class="text-right">1,935</td>
+	        </tr>
+	    	
+	        <tr>
+	            <td scope="row">
+	            	<a href="javascript:trnsSalesReceiptList.viewInvoicePopup('P051621945B', '00', '438');">438</a>
+	            </td>
+	            <td>
+            		
+            			<a href="javascript:trnsSalesReceiptList.viewReceiptPopup('P051621945B', '00', '438', '438');">438</a>
+            		
+	            </td>
+	            <td class="text-left">Naivas Limited - NAKURU WESTSIDE</td>
+	            <td>30/03/2026</td>
+	            <td>Invoice</td>
+	            <td>7</td>
+	            <td class="text-right">4,189</td>
+	            <td class="text-right">0</td>
+	            <td class="text-right">4,189</td>
+	        </tr>
+	    	
+	    	
+	    	
+	    </tbody>
+	</table>
+	<nav class="pagination-section" aria-label="pagination"><ul class="pagination pagination-sm justify-content-center"><li class="page-item active"><a class="page-link" href="javascript:trnsSalesReceiptList.setPage('1');">1</a></li><div class="sum">[ Total Data : 2 / Total page : 1]</div></ul></nav>
+	</div>
+</div>

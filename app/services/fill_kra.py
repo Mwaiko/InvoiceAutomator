@@ -378,6 +378,104 @@ def _extract_kracu(response_data):
                     
     return None
 
+LIST_PATH  = "/app/ebm/trns/sales/trnsSalesReceiptList"
+INDEX_PATH = "/app/ebm/trns/sales/indexTrnsSalesReceipt"
+
+
+def fetch_last_receipt_no(
+    session: requests.Session,
+    cfg:     EtimsConfig,
+    *,
+    lookback_days: int = 7,
+) -> int | None:
+    """
+    Query trnsSalesReceiptList for the past *lookback_days* days and return
+    the highest integer internal receipt ID found.
+
+    KRA assigns sequential integer IDs (the internalId / curRcptNo, which is
+    also the trailing number after '/' in a full KRACU string).  The receipt
+    we are about to submit will get  last_id + 1  as its internal ID.
+
+    Returns None if the list is empty or the call fails (caller should handle
+    gracefully — the submission can still proceed, we just won't have a
+    predicted kra_invoice_no).
+    """
+    import re
+    from datetime import date, timedelta
+
+    today     = date.today()
+    start_dt  = (today - timedelta(days=lookback_days)).strftime("%d/%m/%Y")
+    end_dt    = today.strftime("%d/%m/%Y")
+
+    url     = f"{cfg.base_url}{LIST_PATH}"
+    payload = [
+        ("page",     "1"),
+        ("dtDiv",    "D"),
+        ("startDt",  start_dt),
+        ("endDt",    end_dt),
+        ("invcNo",   ""),
+        ("rcptTyCd", ""),
+    ]
+    hdrs = {
+        "Accept":         "text/html, */*; q=0.01",
+        "Content-Type":   "application/x-www-form-urlencoded; charset=UTF-8",
+        "Origin":         cfg.base_url,
+        "Referer":        f"{cfg.base_url}{INDEX_PATH}",
+        "Sec-Fetch-Dest": "empty",
+        "Sec-Fetch-Mode": "cors",
+        "Sec-Fetch-Site": "same-origin",
+    }
+
+    try:
+        r = session.post(url, data=payload, headers=hdrs, timeout=TIMEOUT_S)
+        _raise_for_kra(r, context="trnsSalesReceiptList")
+    except Exception as exc:
+        log.warning("fetch_last_receipt_no: list request failed: %s", exc)
+        return None
+
+    html = r.text
+
+    # ── Try JSON first ────────────────────────────────────────────────────────
+    import json as _json
+    try:
+        data = _json.loads(html)
+        rows = (
+            data.get("data") or data.get("list") or
+            data.get("resultList") or
+            (data if isinstance(data, list) else [])
+        )
+        ids: list[int] = []
+        for row in rows:
+            # Full KRACU e.g. "KRACU0200021805/439"  → trailing integer
+            invc_str = str(row.get("invcNo") or row.get("cuInvcNo") or "")
+            for candidate in [
+                row.get("internalId"),
+                row.get("curRcptNo"),
+                row.get("rcptNo"),
+                invc_str.rsplit("/", 1)[-1] if "/" in invc_str else None,
+            ]:
+                try:
+                    ids.append(int(candidate))
+                    break
+                except (TypeError, ValueError):
+                    continue
+        if ids:
+            return max(ids)
+    except (ValueError, AttributeError):
+        pass
+
+    # ── Fall back: scrape internalId from popup JS  or trailing /NNN ─────────
+    # Matches: viewInvoicePopup('P051621945B', '00', '439')
+    popup_re = re.compile(r"viewInvoicePopup\([^,]+,\s*[^,]+,\s*'(\d+)'\)", re.IGNORECASE)
+    slash_re = re.compile(r"KRACU\w+/(\d+)", re.IGNORECASE)
+
+    ids = [int(m.group(1)) for m in popup_re.finditer(html)]
+    if not ids:
+        ids = [int(m.group(1)) for m in slash_re.finditer(html)]
+
+    return max(ids) if ids else None
+
+
 def run_fill(
     cfg:    EtimsConfig,
     header: ReceiptHeader,
@@ -389,28 +487,45 @@ def run_fill(
     """
     Submit the receipt to KRA eTIMS.
 
+    Flow
+    ────
+    1. Login.
+    2. Fetch the last 7 days of receipts to find the current highest receipt
+       number.  The receipt we are about to submit will be assigned
+       last_receipt_no + 1 by KRA.  This predicted ID is returned in the
+       result dict as ``kra_invoice_no`` so callers can persist it immediately
+       without waiting for KRA to echo it back in a parseable field.
+    3. Submit the receipt form.
+    4. Optionally download the PDF via the popup method.
+
     Parameters
     ----------
     cfg, header         : as before
     delay_between_items : kept for API compatibility (single-request flow, not used)
     download_pdf        : if True, immediately download the receipt PDF after a
-                          successful submission using the KRACU returned by KRA.
-                          Uses the same authenticated session — no extra login.
+                          successful submission.  Uses the predicted receipt ID
+                          (last_receipt_no + 1) with the popup POST method —
+                          the only method that reliably returns a PDF.
     download_dir        : directory to save the PDF (default: ./downloaded_receipts).
                           Ignored when download_pdf is False.
 
     Returns
     -------
-    list[dict] — same structure as before, with an extra key ``pdf_path`` (str)
-    added to each successful entry when download_pdf=True.
+    list[dict] — one entry with keys:
+        status          – "ok" or "error"
+        items           – list of item names submitted
+        response        – raw KRA response dict
+        kra_invoice_no  – predicted sequential receipt ID (str), e.g. "440"
+                          (last_receipt_no + 1).  None if the list fetch failed.
+        pdf_path        – local PDF path (str) if download_pdf=True and succeeded
     """
     if not header.items:
         raise ValueError("ReceiptHeader has no items — nothing to submit.")
 
-    # Resolve download_dir early so import errors surface before the network call
+    from pathlib import Path as _Path
+
     if download_pdf:
-        from pathlib import Path as _Path
-        from download_invoice import download_receipt_pdf  # reuse existing logic
+        from download_invoice import download_pdf_via_popup
         _out_dir = _Path(download_dir) if download_dir else _Path("./downloaded_receipts")
 
     session = _make_session()
@@ -418,29 +533,51 @@ def run_fill(
     log.info("🔑 Logging in to eTIMS portal (%s)…", cfg.base_url)
     login(cfg, session)
 
-    try:
-        resp = _submit_receipt(session, cfg, header)
-        result: dict = {"items": [i.item_nm for i in header.items], "status": "ok", "response": resp}
-        log.info("  ✅ Receipt accepted  (%d item(s))", len(header.items))
+    # ── Step 2: look up the last receipt number BEFORE submitting ─────────────
+    log.info("🔍 Fetching last receipt number from KRA (last 7 days)…")
+    last_no = fetch_last_receipt_no(session, cfg)
+    if last_no is not None:
+        predicted_no = last_no + 1
+        log.info(
+            "  Last receipt on KRA: %d  →  this submission will be: %d",
+            last_no, predicted_no,
+        )
+    else:
+        predicted_no = None
+        log.warning(
+            "  ⚠️  Could not determine last receipt number — "
+            "kra_invoice_no will not be pre-populated."
+        )
 
-        # ── Auto-download PDF on the same session ─────────────────────────────
+    # ── Step 3: submit ────────────────────────────────────────────────────────
+    try:
+        resp   = _submit_receipt(session, cfg, header)
+        result: dict = {
+            "items":          [i.item_nm for i in header.items],
+            "status":         "ok",
+            "response":       resp,
+            "kra_invoice_no": str(predicted_no) if predicted_no is not None else None,
+        }
+        log.info("  ✅ Receipt accepted  (%d item(s))  kra_invoice_no=%s",
+                 len(header.items), result["kra_invoice_no"])
+
+        # ── Step 4: optional PDF download via popup ───────────────────────────
         if download_pdf:
-            kracu = _extract_kracu(resp)
-            if kracu:
-                log.info("  📥 Downloading receipt PDF for %s …", kracu)
-                pdf_path = download_receipt_pdf(session, cfg, kracu, _out_dir)
-                result["kracu"]    = kracu
+            if predicted_no is not None:
+                log.info("  📥 Downloading receipt PDF for ID %s via popup…", predicted_no)
+                pdf_path = download_pdf_via_popup(session, cfg, str(predicted_no), _out_dir)
                 result["pdf_path"] = str(pdf_path) if pdf_path else None
                 if pdf_path:
                     log.info("  ✅ PDF saved → %s", pdf_path)
                 else:
-                    log.warning("  ⚠️  PDF download failed for %s", kracu)
+                    log.warning(
+                        "  ⚠️  Popup PDF download failed for ID %s.", predicted_no
+                    )
             else:
                 log.warning(
-                    "  ⚠️  download_pdf=True but no KRACU found in KRA response. "
-                    "Raw response: %s", str(resp)[:200]
+                    "  ⚠️  download_pdf=True but predicted receipt ID is unknown — "
+                    "cannot download PDF."
                 )
-                result["kracu"]    = None
                 result["pdf_path"] = None
 
         results = [result]

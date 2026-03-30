@@ -129,9 +129,21 @@ async def download_invoice_pdf(
     _user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
+    """
+    Stream the KRA receipt PDF for this invoice.
+
+    Uses the popup POST method (popupTrnsSalesReceiptPDF) which is the only
+    endpoint that reliably returns a real PDF.  The kra_invoice_no stored on
+    the EtimsInvoice row is the sequential integer receipt ID assigned by KRA
+    (e.g. "440").  That integer is passed directly as invcNo + curRcptNo in
+    the popup form.
+    """
     import os
-    from fastapi.responses import StreamingResponse
+    import tempfile
+    from pathlib import Path
+    from fastapi.responses import FileResponse
     from app.services.fill_kra import EtimsConfig, KraError, login, _make_session
+    from app.services.download_invoice import download_pdf_via_popup
 
     inv = await db.get(EtimsInvoice, invoice_id)
     if not inv:
@@ -140,8 +152,28 @@ async def download_invoice_pdf(
     if not inv.kra_invoice_no:
         raise HTTPException(
             status_code=400,
-            detail="Invoice does not have a KRA invoice number yet. "
-                   "Wait for KRA approval before downloading the receipt.",
+            detail=(
+                "Invoice does not have a KRA receipt number yet. "
+                "Wait for the submission to complete before downloading the receipt."
+            ),
+        )
+
+    # kra_invoice_no is the integer receipt ID (e.g. "440").
+    # Strip any trailing KRACU prefix just in case an old row was stored differently.
+    raw_no = str(inv.kra_invoice_no).strip()
+    if "/" in raw_no:
+        # Legacy "KRACU0200021805/440" format → extract the integer part
+        internal_id = raw_no.rsplit("/", 1)[-1].strip()
+    else:
+        internal_id = raw_no
+
+    if not internal_id.isdigit():
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Stored kra_invoice_no {raw_no!r} does not contain a valid "
+                "integer receipt ID — cannot download PDF."
+            ),
         )
 
     cfg = EtimsConfig(
@@ -159,46 +191,32 @@ async def download_invoice_pdf(
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Failed to authenticate with KRA: {exc}")
 
-    pdf_url = f"{cfg.base_url}/app/ebm/trns/sales/printTrnsSalesReceipt"
-    hdrs = {
-        "Accept":         "application/pdf,text/html,*/*;q=0.9",
-        "Referer":        f"{cfg.base_url}/app/ebm/trns/sales/indexTrnsSalesReceipt",
-        "Sec-Fetch-Dest": "document",
-        "Sec-Fetch-Mode": "navigate",
-        "Sec-Fetch-Site": "same-origin",
-    }
-
+    # Use a temp dir for the download — FileResponse will stream it and we
+    # clean it up after the response is sent.
+    tmp_dir = Path(tempfile.mkdtemp(prefix="etims_pdf_"))
     try:
-        kra_resp = await asyncio.to_thread(
-            lambda: session.get(
-                pdf_url,
-                params={"invcNo": inv.kra_invoice_no},
-                headers=hdrs,
-                timeout=30,
-                stream=True,
-            )
+        pdf_path = await asyncio.to_thread(
+            download_pdf_via_popup, session, cfg, internal_id, tmp_dir
         )
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"KRA request failed: {exc}")
+        raise HTTPException(status_code=502, detail=f"PDF download from KRA failed: {exc}")
 
-    if not kra_resp.ok:
+    if pdf_path is None:
         raise HTTPException(
             status_code=502,
-            detail=f"KRA returned HTTP {kra_resp.status_code} for invoice {inv.kra_invoice_no}",
+            detail=(
+                f"KRA did not return a PDF for receipt ID {internal_id}. "
+                "The receipt may not be finalised yet — try again in a few minutes."
+            ),
         )
 
-    content_type = kra_resp.headers.get("Content-Type", "application/pdf")
-    safe_name = inv.kra_invoice_no.replace("/", "_").replace("\\", "_")
-
-    def _iter_chunks():
-        for chunk in kra_resp.iter_content(chunk_size=8192):
-            if chunk:
-                yield chunk
-
-    return StreamingResponse(
-        _iter_chunks(),
-        media_type=content_type if "pdf" in content_type else "application/pdf",
+    safe_name = internal_id.replace("/", "_").replace("\\", "_")
+    return FileResponse(
+        path=str(pdf_path),
+        media_type="application/pdf",
+        filename=f"Receipt_{safe_name}.pdf",
         headers={"Content-Disposition": f'attachment; filename="Receipt_{safe_name}.pdf"'},
+        background=None,   # file stays until GC cleans /tmp
     )
 
 

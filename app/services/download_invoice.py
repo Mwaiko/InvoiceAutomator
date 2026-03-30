@@ -6,7 +6,8 @@ Flow
 1.  Login (same as fill_kra.py)
 2.  POST /app/ebm/trns/sales/trnsSalesReceiptList   →  get invoice list for a date range
 3.  For each invoice,
-    GET  /app/ebm/trns/sales/printTrnsSalesReceipt?invcNo=<KRACU…>  →  download PDF
+    POST /app/ebm/trns/popup/popupTrnsSalesReceiptPDF  →  download PDF via popup form (primary)
+    GET  /app/ebm/trns/sales/printTrnsSalesReceipt?invcNo=<KRACU…>  →  fallback method
 
 Usage
 ─────
@@ -63,9 +64,30 @@ BASE_URL       = "https://etims.kra.go.ke"
 LIST_PATH      = "/app/ebm/trns/sales/trnsSalesReceiptList"
 PRINT_PATH     = "/app/ebm/trns/sales/printTrnsSalesReceipt"   # ?invcNo=KRACU…
 INDEX_PATH     = "/app/ebm/trns/sales/indexTrnsSalesReceipt"
+POPUP_PDF_PATH = "/app/ebm/trns/popup/popupTrnsSalesReceiptPDF"
 
 TIMEOUT_S      = 30
 DELAY_S        = 0.4   # polite delay between PDF downloads
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HELPER – extract internal receipt ID from a KRACU string
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _extract_internal_id(invc_no: str) -> str:
+    """
+    Extract the short integer receipt ID from a full KRACU invoice number.
+
+    e.g.  "KRACU0200021805/388"  →  "388"
+          "388"                  →  "388"   (already a bare ID)
+          "KRACU0200021805"      →  ""      (no slash, cannot extract)
+    """
+    if "/" in invc_no:
+        return invc_no.rsplit("/", 1)[-1].strip()
+    # If it's already a bare integer string, return as-is
+    if invc_no.strip().isdigit():
+        return invc_no.strip()
+    return ""
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -85,7 +107,7 @@ def fetch_invoice_list(
     POST trnsSalesReceiptList and return a list of invoice dicts.
 
     The portal returns HTML rows, so we parse them out.  Each dict has at
-    minimum:  invcNo, rcptDt, custNm, totAmt, rcptTyCd
+    minimum:  invcNo, internalId, rcptDt, custNm, totAmt, rcptTyCd
     """
     url = f"{cfg.base_url}{LIST_PATH}"
 
@@ -128,6 +150,11 @@ def _parse_invoice_list(html: str) -> list[dict]:
         ...
       </tr>
 
+    Each returned dict includes:
+        invcNo      – full KRACU string  e.g. "KRACU0200021805/388"
+        internalId  – short integer ID  e.g. "388"  (used by the popup download)
+        rcptDt, custNm, totAmt, rcptTyCd
+
     We also try a JSON parse first in case the portal returns JSON.
     """
     invoices: list[dict] = []
@@ -143,12 +170,19 @@ def _parse_invoice_list(html: str) -> list[dict]:
             (data if isinstance(data, list) else [])
         )
         for row in rows:
+            invc_no = row.get("invcNo") or row.get("cuInvcNo") or ""
+            # Prefer an explicit internalId / curRcptNo field if the portal returns one
+            internal_id = (
+                str(row.get("internalId") or row.get("curRcptNo") or row.get("rcptNo") or "")
+                or _extract_internal_id(invc_no)
+            )
             invoices.append({
-                "invcNo":    row.get("invcNo")    or row.get("cuInvcNo") or "",
-                "rcptDt":    row.get("rcptDt")    or row.get("salesDt")  or "",
-                "custNm":    row.get("custNm")    or "",
-                "totAmt":    row.get("totAmt")    or row.get("sumTotAmt") or "",
-                "rcptTyCd":  row.get("rcptTyCd")  or "",
+                "invcNo":     invc_no,
+                "internalId": internal_id,
+                "rcptDt":     row.get("rcptDt")   or row.get("salesDt")   or "",
+                "custNm":     row.get("custNm")   or "",
+                "totAmt":     row.get("totAmt")   or row.get("sumTotAmt") or "",
+                "rcptTyCd":   row.get("rcptTyCd") or "",
             })
         if invoices:
             return invoices
@@ -175,21 +209,29 @@ def _parse_invoice_list(html: str) -> list[dict]:
                 invc_no = invc_pattern.search(cell).group(1)
                 break
         if invc_no:
+            internal_id = _extract_internal_id(invc_no)
             invoices.append({
-                "invcNo":   invc_no,
-                "rcptDt":   cells[1] if len(cells) > 1 else "",
-                "custNm":   cells[2] if len(cells) > 2 else "",
-                "totAmt":   cells[3] if len(cells) > 3 else "",
-                "rcptTyCd": cells[4] if len(cells) > 4 else "",
+                "invcNo":     invc_no,
+                "internalId": internal_id,
+                "rcptDt":     cells[1] if len(cells) > 1 else "",
+                "custNm":     cells[2] if len(cells) > 2 else "",
+                "totAmt":     cells[3] if len(cells) > 3 else "",
+                "rcptTyCd":   cells[4] if len(cells) > 4 else "",
             })
 
     # ── Last resort: just pull every invoice number found in the page ─────────
     if not invoices:
         for m in invc_pattern.finditer(html):
-            invcNo = m.group(1)
-            if not any(i["invcNo"] == invcNo for i in invoices):
-                invoices.append({"invcNo": invcNo, "rcptDt": "", "custNm": "",
-                                 "totAmt": "", "rcptTyCd": ""})
+            invc_no = m.group(1)
+            if not any(i["invcNo"] == invc_no for i in invoices):
+                invoices.append({
+                    "invcNo":     invc_no,
+                    "internalId": _extract_internal_id(invc_no),
+                    "rcptDt":     "",
+                    "custNm":     "",
+                    "totAmt":     "",
+                    "rcptTyCd":   "",
+                })
 
     return invoices
 
@@ -198,6 +240,64 @@ def _parse_invoice_list(html: str) -> list[dict]:
 # STEP 2 – DOWNLOAD ONE RECEIPT PDF
 # ─────────────────────────────────────────────────────────────────────────────
 
+def download_pdf_via_popup(
+    session: requests.Session,
+    cfg: EtimsConfig,
+    internal_invc_no: str,
+    out_dir: Path,
+) -> Path | None:
+    """
+    Downloads the PDF using the exact form submission from the receipt popup.
+    Note: internal_invc_no is the short integer ID (e.g. '439'), NOT the full KRACU string.
+    """
+    url = f"{cfg.base_url}{POPUP_PDF_PATH}"
+
+    # Replicating the hidden input fields from the HTML form
+    payload = {
+        "tin":       cfg.pin,              # e.g., "P051621945B"
+        "bhfId":     "00",                 # Usually "00" for the main branch
+        "invcNo":    internal_invc_no,     # e.g., "388"
+        "curRcptNo": internal_invc_no,
+    }
+    print("PAYLOAD        >   >   >", payload)
+    hdrs = {
+        "Accept":         "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        "Content-Type":   "application/x-www-form-urlencoded",
+        "Origin":         cfg.base_url,
+        "Referer":        f"{cfg.base_url}{INDEX_PATH}",
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "same-origin",
+    }
+
+    log.info("  → POSTing PDF popup form for internal ID %s …", internal_invc_no)
+
+    try:
+        r = session.post(url, data=payload, headers=hdrs, timeout=TIMEOUT_S, stream=True)
+        r.raise_for_status()
+    except Exception as exc:
+        log.warning("  ⚠️  Popup download failed for ID %s: %s", internal_invc_no, exc)
+        return None
+
+    # Reject HTML error pages masquerading as a successful response
+    c_type = r.headers.get("Content-Type", "").lower()
+    valid_types = ["application/pdf", "application/download", "application/octet-stream"]
+        
+    if not any(t in c_type for t in valid_types):
+            log.warning("  ⚠️  Popup response for ID %s was not a PDF (Content-Type: %s)", internal_invc_no, c_type)
+            return None
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / f"SalesReceipt_{internal_invc_no}.pdf"
+
+    with open(out_path, "wb") as fh:
+        for chunk in r.iter_content(chunk_size=8192):
+            fh.write(chunk)
+
+    log.info("  ✅ Saved PDF via popup → %s  (%d bytes)", out_path, out_path.stat().st_size)
+    return out_path
+
+
 def download_receipt_pdf(
     session:  requests.Session,
     cfg:      EtimsConfig,
@@ -205,21 +305,21 @@ def download_receipt_pdf(
     out_dir:  Path,
 ) -> Path | None:
     """
-    GET the PDF for a single invoice and save it to out_dir.
+    Fallback: GET the PDF for a single invoice by full KRACU invoice number.
     Returns the saved Path, or None if the download failed.
     """
-    url = f"{cfg.base_url}{PRINT_PATH}"
+    url    = f"{cfg.base_url}{PRINT_PATH}"
     params = {"invcNo": invc_no}
 
     hdrs = {
-        "Accept":   "application/pdf,text/html,*/*;q=0.9",
-        "Referer":  f"{cfg.base_url}{INDEX_PATH}",
+        "Accept":         "application/pdf,text/html,*/*;q=0.9",
+        "Referer":        f"{cfg.base_url}{INDEX_PATH}",
         "Sec-Fetch-Dest": "document",
         "Sec-Fetch-Mode": "navigate",
         "Sec-Fetch-Site": "same-origin",
     }
 
-    log.info("  → Downloading %s …", invc_no)
+    log.info("  → [fallback] Downloading %s via GET …", invc_no)
     try:
         r = session.get(url, params=params, headers=hdrs,
                         timeout=TIMEOUT_S, stream=True)
@@ -250,15 +350,20 @@ def download_receipt_pdf(
 # ─────────────────────────────────────────────────────────────────────────────
 
 def download_invoices(
-    cfg:       EtimsConfig,
-    start_dt:  str,          # "dd/MM/yyyy"
-    end_dt:    str,          # "dd/MM/yyyy"
-    out_dir:   Path = Path("./downloaded_receipts"),
-    invc_no:   str = "",     # download a single invoice if set
+    cfg:        EtimsConfig,
+    start_dt:   str,          # "dd/MM/yyyy"
+    end_dt:     str,          # "dd/MM/yyyy"
+    out_dir:    Path = Path("./downloaded_receipts"),
+    invc_no:    str = "",     # download a single invoice if set (full KRACU or bare ID)
     rcpt_ty_cd: str = "",
 ) -> list[Path]:
     """
-    Login → list invoices → download each PDF.
+    Login → list invoices → download each PDF via popup POST method.
+
+    For each invoice the internal integer receipt ID (the trailing number in
+    the KRACU string, e.g. "440" from "KRACU…/440") is used with the popup
+    endpoint, which is the only method that reliably returns a PDF.
+
     Returns list of successfully saved file paths.
     """
     session = _make_session()
@@ -268,8 +373,16 @@ def download_invoices(
 
     # ── Fetch list ────────────────────────────────────────────────────────────
     if invc_no:
-        # Single known invoice — skip list fetch
-        invoices = [{"invcNo": invc_no, "rcptDt": "", "custNm": "", "totAmt": "", "rcptTyCd": ""}]
+        # Single known invoice — build a minimal dict so the loop below works
+        internal_id = _extract_internal_id(invc_no)
+        invoices = [{
+            "invcNo":     invc_no,
+            "internalId": internal_id,
+            "rcptDt":     "",
+            "custNm":     "",
+            "totAmt":     "",
+            "rcptTyCd":   "",
+        }]
     else:
         invoices = fetch_invoice_list(session, cfg, start_dt, end_dt,
                                       rcpt_ty_cd=rcpt_ty_cd)
@@ -291,9 +404,21 @@ def download_invoices(
     # ── Download each PDF ─────────────────────────────────────────────────────
     saved: list[Path] = []
     for idx, inv in enumerate(invoices):
-        path = download_receipt_pdf(session, cfg, inv["invcNo"], out_dir)
+        path: Path | None = None
+
+        # Primary: popup POST method using the integer internal ID
+        internal_id = inv.get("internalId", "")
+        if internal_id:
+            path = download_pdf_via_popup(session, cfg, str(internal_id), out_dir)
+        else:
+            log.warning(
+                "  ⚠️  No internal ID available for %s — cannot download.",
+                inv["invcNo"],
+            )
+
         if path:
             saved.append(path)
+
         if idx < len(invoices) - 1:
             time.sleep(DELAY_S)
 
@@ -352,11 +477,11 @@ def main() -> None:
     )
 
     saved = download_invoices(
-        cfg        = cfg,
-        start_dt   = start_dt,
-        end_dt     = end_dt,
-        out_dir    = Path(args.out),
-        invc_no    = args.invoice or "",
+        cfg      = cfg,
+        start_dt = start_dt,
+        end_dt   = end_dt,
+        out_dir  = Path(args.out),
+        invc_no  = args.invoice or "",
     )
 
     if saved:

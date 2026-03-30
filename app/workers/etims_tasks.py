@@ -199,17 +199,26 @@ async def submit_to_etims(grn_id: str, etims_invoice_id: str) -> dict:
             inv.status       = EtimsStatus.submitted
             grn.status       = GRNStatus.invoiced
             inv.kra_response = json.dumps(primary_result, default=str)
-            kracu = _extract_kracu(primary_result)
-            if kracu:
-                inv.kra_invoice_no = kracu
+
+            # run_fill now returns kra_invoice_no = last_receipt_no + 1
+            # (the predicted sequential receipt ID on KRA).
+            # Fall back to _extract_kracu() for any legacy KRACU string in the
+            # raw KRA response — whichever is non-empty wins.
+            predicted_no = primary_result.get("kra_invoice_no")
+            kracu_from_response = _extract_kracu(primary_result.get("response") or primary_result)
+
+            kra_invoice_no = predicted_no or kracu_from_response or None
+
+            if kra_invoice_no:
+                inv.kra_invoice_no = kra_invoice_no
                 logger.info(
-                    "submit_to_etims: KRA invoice number saved kra_invoice_no=%s for EtimsInvoice %s",
-                    kracu, etims_invoice_id,
+                    "submit_to_etims: kra_invoice_no=%s saved for EtimsInvoice %s",
+                    kra_invoice_no, etims_invoice_id,
                 )
             else:
                 logger.warning(
-                    "submit_to_etims: KRA accepted receipt but returned no cuInvcNo "
-                    "for EtimsInvoice %s — raw response: %s",
+                    "submit_to_etims: KRA accepted receipt but kra_invoice_no "
+                    "could not be determined for EtimsInvoice %s — raw: %s",
                     etims_invoice_id, str(primary_result)[:300],
                 )
         else:
