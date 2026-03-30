@@ -166,6 +166,9 @@ async def submit_to_etims(grn_id: str, etims_invoice_id: str) -> dict:
             try:
                 results    = await asyncio.to_thread(run_fill, cfg, receipt_header)
                 logger.info("Submission To Etims RESPONSE : %s",results)
+                print("=*"*50)
+                print("SUBMITTED TO ETIMS RESPONSE :",results)
+                print("=*"*50)
                 last_error = None
                 break
             except KraError as exc:
@@ -195,7 +198,6 @@ async def submit_to_etims(grn_id: str, etims_invoice_id: str) -> dict:
         if primary_result.get("status") == "ok":
             inv.status       = EtimsStatus.submitted
             grn.status       = GRNStatus.invoiced
-            # Store full JSON response for auditing
             inv.kra_response = json.dumps(primary_result, default=str)
             kracu = _extract_kracu(primary_result)
             if kracu:
