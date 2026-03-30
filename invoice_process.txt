@@ -249,3 +249,311 @@ curl 'https://etims.kra.go.ke/app/ebm/trns/sales/trnsSalesReceiptList' \
   -H 'sec-ch-ua-mobile: ?0' \
   -H 'sec-ch-ua-platform: "Linux"' \
   --data-raw 'custTin=&custNm=SAFARI+CENTER+NAIVASHA&custMblNo=020+8000792&custMblFornNo=&pmtTyCd=07&totSplyAmt=15450&totTaxblAmt=15450&totTaxAmt=0&sumTotAmt=15450&taxblAmtA=0&taxAmtA=0&taxRtA=0&taxblAmtB=0&taxAmtB=0&taxRtB=16&taxblAmtC=0&taxAmtC=0&taxRtC=0&taxblAmtE=0&taxAmtE=0&taxRtE=8&taxblAmtD=15450&taxAmtD=0&taxRtD=0&itemClsCd=5040150100&itemCd=KE2BZXBEX00001&bcd=&itemNm=Onions+Red&pkgUnitCd=BZ&pkg=&qtyUnitCd=BE&qty=150&prc=85&dcRt=0&dcAmt=0&splyAmt=12750&taxblAmt=12750&taxTyRate=0&taxTyCd=D&taxAmt=0&totAmt=12750&itemClsCd=5040150100&itemCd=KE2BEXBEX00001&bcd=&itemNm=Dania&pkgUnitCd=BE&pkg=&qtyUnitCd=BE&qty=70&prc=20&dcRt=0&dcAmt=0&splyAmt=1400&taxblAmt=1400&taxTyRate=0&taxTyCd=D&taxAmt=0&totAmt=1400&itemClsCd=5040150100&itemCd=KE1BEXKGX00003&bcd=&itemNm=Mint+Herbs&pkgUnitCd=BE&pkg=&qtyUnitCd=KG&qty=10&prc=35&dcRt=0&dcAmt=0&splyAmt=350&taxblAmt=350&taxTyRate=0&taxTyCd=D&taxAmt=0&totAmt=350&itemClsCd=5040150100&itemCd=KE2BZXU00001&bcd=&itemNm=Salad+Onion+250g&pkgUnitCd=BZ&pkg=&qtyUnitCd=U&qty=10&prc=95&dcRt=0&dcAmt=0&splyAmt=950&taxblAmt=950&taxTyRate=0&taxTyCd=D&taxAmt=0&totAmt=950&remark=Order+No.P040603675%2CDelivery+Note+No.2076QOS%2CGrn+No.+NVS-008740467%2CInvoice+No.+193+%2CStore+No.110'
+
+curl 'https://etims.kra.go.ke/app/ebm/trns/sales/trnsSalesReceiptList' \
+  -H 'Accept: text/html, */*; q=0.01' \
+  -H 'Accept-Language: en-GB,en-US;q=0.9,en;q=0.8' \
+  -H 'Connection: keep-alive' \
+  -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' \
+  -b 'JSESSIONID=CC1E1F0DCF5F0D637998D8386BE1FF97; BIGipServer~k8sprd02~Shared~etims_portal_8080_etims_prod_etims_kra_go_ke=3926711306.36895.0000' \
+  -H 'Origin: https://etims.kra.go.ke' \
+  -H 'Referer: https://etims.kra.go.ke/app/ebm/trns/sales/indexTrnsSalesReceipt' \
+  -H 'Sec-Fetch-Dest: empty' \
+  -H 'Sec-Fetch-Mode: cors' \
+  -H 'Sec-Fetch-Site: same-origin' \
+  -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36' \
+  -H 'X-Requested-With: XMLHttpRequest' \
+  -H 'sec-ch-ua: "Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "Linux"' \
+  --data-raw 'page=1&dtDiv=D&startDt=29%2F03%2F2026&endDt=30%2F03%2F2026&invcNo=&rcptTyCd='
+
+  curl 'https://etims.kra.go.ke/app/ebm/trns/popup/popupTrnsSalesReceipt' \
+  -H 'Accept: text/html, */*; q=0.01' \
+  -H 'Accept-Language: en-GB,en-US;q=0.9,en;q=0.8' \
+  -H 'Connection: keep-alive' \
+  -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' \
+  -b 'JSESSIONID=CC1E1F0DCF5F0D637998D8386BE1FF97; BIGipServer~k8sprd02~Shared~etims_portal_8080_etims_prod_etims_kra_go_ke=3926711306.36895.0000' \
+  -H 'Origin: https://etims.kra.go.ke' \
+  -H 'Referer: https://etims.kra.go.ke/app/ebm/trns/sales/indexTrnsSalesReceipt' \
+  -H 'Sec-Fetch-Dest: empty' \
+  -H 'Sec-Fetch-Mode: cors' \
+  -H 'Sec-Fetch-Site: same-origin' \
+  -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36' \
+  -H 'X-Requested-With: XMLHttpRequest' \
+  -H 'sec-ch-ua: "Not:A-Brand";v="99", "Google Chrome";v="145", "Chromium";v="145"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "Linux"' \
+  --data-raw 'tin=P051621945B&bhfId=00&invcNo=437&curRcptNo=437&popId=popupReceipt&popTitle=Receipt+Information&popSize=XL&multiYn=N&callBackFnc='
+
+<script type="text/javascript">
+	$(document).ready(function() {
+		$(".preloader").fadeOut();
+	});
+
+	$(function() {
+		$("#popupReceipt_B_close").click(function(){
+			pop.close("popupReceipt");
+		});
+	});
+</script>
+
+<div class="modal-dialog modal-xl">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4 class="modal-title" id="popupReceiptLabel">Receipt Information</h4>
+            <button type="button" class="close" id="popupReceipt_B_close" title="Close" data-dismiss="modal" aria-hidden="true"><i class="fa fa-times" aria-hidden="true"></i></button>
+        </div>
+        <div class="modal-body">
+	    	
+
+
+
+
+
+
+
+
+
+
+<script type="text/javascript">
+$(document).ready(function(){
+    // Attach event listener to contextmenu event
+    $(document).on("contextmenu", function(e){
+        // Prevent default behavior
+        e.preventDefault();
+    });
+});
+</script>
+<script type="text/javascript">
+	$(function(){
+		
+			$("#trnsSalesReceipt_D_B_PDF").click(function(){
+				$("#trnsSalesReceiptPdf_S_FM").attr("action", "/app/ebm/trns/popup/popupTrnsSalesReceiptPDF");
+				$("#trnsSalesReceiptPdf_S_FM").submit();
+			});
+		
+	});
+</script>
+<div class="row">
+	<!-- table02 -->
+    <div class="col-md-12">
+        <table class="tbl_type4">
+        	<caption>Sales Receipt Popup</caption>
+            <colgroup>
+                <col style="width:100%"/>
+            </colgroup>
+            <tbody>
+                <tr><td></td></tr>
+                <tr><td></td></tr>
+                <tr><td>PIN : P051621945B </td></tr>
+                <tr><td></td></tr>
+                <tr><td>client ID : </td></tr>
+		        
+            </tbody>
+        </table>
+        <table class="tbl_type2" cellspacing="0" >
+        	<caption>Sales Receipt Popup</caption>
+		    <colgroup>
+		        <col style="width:6%"/>
+		        <col style="width:8%"/>
+		        <col style="width:9%"/>
+		        <col style="width:9%"/>
+		        <col style="width:8%"/>
+		        <col style="width:8%"/>
+		        <col style="width:8%"/>
+		        <col style="width:8%"/>
+		        <col style="width:8%"/>
+		        <col style="width:6%"/>
+		        <col style="width:8%"/>
+		        
+		    </colgroup>
+		    <thead>
+		        <tr>
+		            <th scope="col">Item sequence</th>
+		            <th scope="col">Item class code</th>
+		            <th scope="col">Item code</th>
+		            <th scope="col">Item name</th>
+		            <th scope="col">Unit price (VAT incl)</th>
+		            <th scope="col">Quantity</th>
+		            <th scope="col">Supply Price</th>
+		            <th scope="col">Discount Amount</th>
+		            <th scope="col">Taxable Supply Price</th>
+		            <th scope="col">Tax type</th>
+		            <th scope="col">VAT</th>
+		            
+		        </tr>
+		    </thead>
+		    <tbody>
+		    	
+		    	 
+		        <tr>
+		            <td scope="row">1</td>
+		            <td>5030150300</td>
+		            <td></td>
+		            <td class="text-left">SPINACH BUNCH</td>
+		            <td class="text-right">32</td>
+		            <td>30</td>
+		            <td class="text-right">960</td>
+		            <td>0</td>
+		            <td class="text-right">960</td>
+		            <td>D</td>
+		            <td class="text-right">0</td>
+		            
+		        </tr>
+		        
+		    	
+		    	 
+		        <tr>
+		            <td scope="row">2</td>
+		            <td>5030150300</td>
+		            <td></td>
+		            <td class="text-left">MANAGU BUNCH</td>
+		            <td class="text-right">35</td>
+		            <td>14</td>
+		            <td class="text-right">490</td>
+		            <td>0</td>
+		            <td class="text-right">490</td>
+		            <td>D</td>
+		            <td class="text-right">0</td>
+		            
+		        </tr>
+		        
+		    	
+		    	 
+		        <tr>
+		            <td scope="row">3</td>
+		            <td>5030150300</td>
+		            <td></td>
+		            <td class="text-left">DHANIA BUNCH</td>
+		            <td class="text-right">20</td>
+		            <td>19</td>
+		            <td class="text-right">380</td>
+		            <td>0</td>
+		            <td class="text-right">380</td>
+		            <td>D</td>
+		            <td class="text-right">0</td>
+		            
+		        </tr>
+		        
+		    	
+		    	 
+		        <tr>
+		            <td scope="row">4</td>
+		            <td>5030150300</td>
+		            <td></td>
+		            <td class="text-left">SAGHET BUNCH</td>
+		            <td class="text-right">30</td>
+		            <td>23</td>
+		            <td class="text-right">690</td>
+		            <td>0</td>
+		            <td class="text-right">690</td>
+		            <td>D</td>
+		            <td class="text-right">0</td>
+		            
+		        </tr>
+		        
+		    	
+		    	 
+		        <tr>
+		            <td scope="row">5</td>
+		            <td>5030150300</td>
+		            <td></td>
+		            <td class="text-left">TERERE BUNCH</td>
+		            <td class="text-right">35</td>
+		            <td>15</td>
+		            <td class="text-right">525</td>
+		            <td>0</td>
+		            <td class="text-right">525</td>
+		            <td>D</td>
+		            <td class="text-right">0</td>
+		            
+		        </tr>
+		        
+		    	
+		    </tbody>
+		</table>
+
+		<table class="tbl_type4">
+			<caption>Sales Receipt Popup</caption>
+            <colgroup>
+                <col/>
+                <col style="width:200px"/>
+                <col style="width:100px"/>
+            </colgroup>
+            <tbody>
+                <tr>
+                    <td></td>
+                    <td>TOTAL</td>
+                    <td class="text-right">3045</td>
+                </tr>
+                
+                
+                
+                
+	                <tr>
+	                    <td></td>
+	                    <td>TOTAL TAXABLE D-0</td>
+	                    <td class="text-right">3045</td>
+	                </tr>
+	                <tr>
+	                    <td></td>
+	                    <td>TOTAL TAX D</td>
+	                    <td class="text-right">0</td>
+	                </tr>
+                
+                
+                <tr>
+                    <td></td>
+                    <td>TOTAL TAX</td>
+                    <td class="text-right">0</td>
+                </tr>
+                
+            </tbody>
+        </table>
+
+        <table class="tbl_type4">
+        	<caption>Sales Receipt Popup</caption>
+            <colgroup>
+                <col style="width:150px"/>
+                <col/>
+            </colgroup>
+            <tbody>
+                <tr><td class="text-center" colspan="2">SCU INFORMATION</td></tr>
+                <tr><th>Date</th>
+                    <td>29/03/2026</td>
+                </tr>
+                <tr><th>Invoice Number</th>
+                    <td>KRACU0200021805/437</td>
+                </tr>
+                <tr><th>Internal Data</th>
+                    <td>CLKP-MJCX-RVZL-BJW3-HWPB-W6QA-EA</td>
+                </tr>
+                <tr><th>Receipt Signature</th>
+                    <td>3JXF-TBDI-NIZH-FSZR</td>
+                </tr>
+                <tr><td class="text-center" colspan="2"></td></tr>
+            </tbody>
+        </table>
+	</div>
+</div>
+
+	<div class="btn-section text-right">
+		<button id="trnsSalesReceipt_D_B_PDF" class="btn btn-success" title="Receipt" type="button">Receipt</button>
+	</div>
+	<form id="trnsSalesReceiptPdf_S_FM" class="row" autocomplete="off" method="post">
+		<input type="hidden" name="tin" value="P051621945B"/>
+		<input type="hidden" name="bhfId" value="00"/>
+		<input type="hidden" name="invcNo" value="437"/>
+		<input type="hidden" name="curRcptNo" value="437"/>
+	</form>
+
+	    </div>
+    </div>
+    <!-- /.modal-content -->
+</div>
+<!-- /.modal-dialog -->
+
+
+
+
