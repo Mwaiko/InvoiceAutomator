@@ -47,7 +47,7 @@ from urllib3.util.retry import Retry
 
 # ── re-use login machinery from fill_kra ──────────────────────────────────────
 try:
-    from fill_kra import EtimsConfig, login, _make_session, _raise_for_kra, KraError
+    from .fill_kra import EtimsConfig, login, _make_session, _raise_for_kra, KraError
 except ImportError:
     # Fallback: duplicate just enough so this file is self-contained
     raise ImportError(
