@@ -5,7 +5,7 @@ GET    /etims-invoices                     – list invoices (filter by status, 
 GET    /etims-invoices/summary             – AR rollup per business
 GET    /etims-invoices/{id}                – get single invoice
 POST   /etims-invoices/{id}/retry          – re-queue a rejected invoice
-PATCH  /etims-invoices/{id}/payment        – record a payment amount
+PATCH  /etims-invoices/{id}/payment        – record an incremental payment amount
 PATCH  /etims-invoices/{id}/payment-status – force-override payment status
 """
 
@@ -28,6 +28,36 @@ from app.schemas.etims import (
 )
 
 router = APIRouter(prefix="/etims-invoices", tags=["etims"])
+
+
+# ── Shared helper ─────────────────────────────────────────────────────────────
+
+async def _apply_payment_delta(
+    db: AsyncSession,
+    inv: EtimsInvoice,
+    delta: float,
+) -> None:
+    """
+    Add *delta* to total_paid on the Business and Branch linked to *inv*.
+
+    Both payment endpoints call this so that the AR rollup is always consistent.
+    delta is positive when money is received, negative when a payment is reversed.
+    A delta of zero is a no-op and skips the DB load entirely.
+    """
+    if delta == 0:
+        return
+
+    if inv.business_id:
+        from app.db.models.business import Business as BusinessModel
+        biz = await db.get(BusinessModel, inv.business_id)
+        if biz:
+            biz.total_paid = float(biz.total_paid or 0) + delta
+
+    if inv.branch_id:
+        from app.db.models.business import Branch
+        branch = await db.get(Branch, inv.branch_id)
+        if branch:
+            branch.total_paid = float(branch.total_paid or 0) + delta
 
 
 # ── List ──────────────────────────────────────────────────────────────────────
@@ -77,8 +107,6 @@ async def payment_summary(
             func.sum(EtimsInvoice.invoice_amount).label("total_invoiced"),
             func.sum(EtimsInvoice.amount_paid).label("total_paid"),
             func.count(EtimsInvoice.id).label("invoice_count"),
-            # FIX: was referencing PaymentStatus.unpaid / partially_paid which don't
-            # exist in the enum. Only 'pending' and 'paid' are valid values.
             func.count(EtimsInvoice.id).filter(
                 EtimsInvoice.payment_status == PaymentStatus.pending
             ).label("unpaid_count"),
@@ -158,11 +186,8 @@ async def download_invoice_pdf(
             ),
         )
 
-    # kra_invoice_no is the integer receipt ID (e.g. "440").
-    # Strip any trailing KRACU prefix just in case an old row was stored differently.
     raw_no = str(inv.kra_invoice_no).strip()
     if "/" in raw_no:
-        # Legacy "KRACU0200021805/440" format → extract the integer part
         internal_id = raw_no.rsplit("/", 1)[-1].strip()
     else:
         internal_id = raw_no
@@ -191,8 +216,6 @@ async def download_invoice_pdf(
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Failed to authenticate with KRA: {exc}")
 
-    # Use a temp dir for the download — FileResponse will stream it and we
-    # clean it up after the response is sent.
     tmp_dir = Path(tempfile.mkdtemp(prefix="etims_pdf_"))
     try:
         pdf_path = await asyncio.to_thread(
@@ -216,7 +239,7 @@ async def download_invoice_pdf(
         media_type="application/pdf",
         filename=f"Receipt_{safe_name}.pdf",
         headers={"Content-Disposition": f'attachment; filename="Receipt_{safe_name}.pdf"'},
-        background=None,   # file stays until GC cleans /tmp
+        background=None,
     )
 
 
@@ -251,7 +274,7 @@ async def retry_invoice(
     return inv
 
 
-# ── Record a payment against this invoice ─────────────────────────────────────
+# ── Record an incremental payment ─────────────────────────────────────────────
 
 @router.patch("/{invoice_id}/payment", response_model=EtimsInvoiceResponse)
 async def record_payment(
@@ -261,12 +284,17 @@ async def record_payment(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Record a payment received against this invoice.
+    Record a partial or full payment received against this invoice.
 
-    • Increments amount_paid on the EtimsInvoice.
-    • Calls recalculate_payment_status() which keeps payment_status and
-      amount_paid in sync (clamps amount_paid to invoice_amount on full payment).
-    • Also increments total_paid on the linked Business and Branch.
+    Flow:
+      1. Snapshot amount_paid before the mutation.
+      2. Add payload.amount then call recalculate_payment_status(), which
+         clamps amount_paid ≤ invoice_amount and sets payment_status.
+      3. Delta = new amount_paid − snapshot. Using the post-clamp figure
+         means we never over-credit Business/Branch even if the caller sends
+         more than the outstanding balance.
+      4. Apply that exact delta to Business.total_paid and Branch.total_paid
+         via _apply_payment_delta().
     """
     inv = await db.get(EtimsInvoice, invoice_id)
     if not inv:
@@ -275,37 +303,25 @@ async def record_payment(
     if inv.payment_status == PaymentStatus.paid:
         raise HTTPException(
             status_code=409,
-            detail="Invoice is already fully paid. Use the manual override endpoint if needed.",
+            detail="Invoice is already fully paid. Use the payment-status override endpoint if needed.",
         )
 
-    # ── Update invoice running total then recalculate status ─────────────────
-    inv.amount_paid = float(inv.amount_paid or 0) + payload.amount
-    inv.recalculate_payment_status()  # also clamps amount_paid and sets payment_status
+    amount_before = float(inv.amount_paid or 0)
 
-    # ── Mirror payment onto Business + Branch totals ───────────────────────
-    # Use the actual amount credited (post-clamp) to avoid double-counting
-    amount_credited = float(inv.amount_paid) - (float(inv.amount_paid) - payload.amount
-                                                  if payload.amount <= float(inv.invoice_amount or 0)
-                                                  else float(inv.invoice_amount or 0) - (float(inv.amount_paid) - payload.amount))
+    inv.amount_paid = amount_before + payload.amount
+    inv.recalculate_payment_status()  # clamps amount_paid, sets payment_status
 
-    if inv.business_id:
-        from app.db.models.business import Business as BusinessModel
-        business_obj = await db.get(BusinessModel, inv.business_id)
-        if business_obj:
-            business_obj.total_paid = float(business_obj.total_paid or 0) + payload.amount
+    # Post-clamp delta — this is the amount actually credited
+    delta = float(inv.amount_paid) - amount_before
 
-    if inv.branch_id:
-        from app.db.models.business import Branch
-        branch_obj = await db.get(Branch, inv.branch_id)
-        if branch_obj:
-            branch_obj.total_paid = float(branch_obj.total_paid or 0) + payload.amount
+    await _apply_payment_delta(db, inv, delta)
 
     await db.commit()
     await db.refresh(inv)
     return inv
 
 
-# ── Force-override payment status (accountant correction) ─────────────────────
+# ── Force-override payment status ─────────────────────────────────────────────
 
 @router.patch("/{invoice_id}/payment-status", response_model=EtimsInvoiceResponse)
 async def update_payment_status(
@@ -315,18 +331,39 @@ async def update_payment_status(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Manually override payment_status. Also syncs amount_paid to match:
-      paid    → amount_paid = invoice_amount
-      pending → amount_paid = 0
+    Manually override payment_status AND keep amount_paid, Business.total_paid,
+    and Branch.total_paid all consistent in a single transaction.
 
-    This keeps both fields consistent regardless of how the status was set.
+    Flow:
+      1. Snapshot amount_paid before the mutation.
+      2. Set payment_status then call sync_from_status(), which forces:
+           paid    → amount_paid = invoice_amount
+           pending → amount_paid = 0
+      3. Delta = new amount_paid − snapshot.
+         Positive when marking paid (money credited).
+         Negative when reversing to pending (correction / over-payment).
+      4. Apply delta to Business.total_paid and Branch.total_paid.
+
+    Previously this endpoint only called sync_from_status() but never touched
+    Business or Branch totals, so the AR rollup always drifted after a status
+    override.
     """
     inv = await db.get(EtimsInvoice, invoice_id)
     if not inv:
         raise NotFoundError(f"eTIMS Invoice {invoice_id} not found")
 
+    # No-op guard — nothing to do, no DB writes needed
+    if inv.payment_status == payload.payment_status:
+        return inv
+
+    amount_before = float(inv.amount_paid or 0)
+
     inv.payment_status = payload.payment_status
-    inv.sync_from_status()  # FIX: was missing — amount_paid was never updated on override
+    inv.sync_from_status()  # amount_paid = invoice_amount (paid) or 0 (pending)
+
+    delta = float(inv.amount_paid) - amount_before
+
+    await _apply_payment_delta(db, inv, delta)
 
     await db.commit()
     await db.refresh(inv)
