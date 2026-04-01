@@ -1,385 +1,300 @@
 """
-app/services/read_image_content.py
+app/services/etims_mapper.py
 
-Extracts a structured GRN dict from an image file using the
-NVIDIA Nemotron-OCR API instead of the local PaddleOCR library.
+Converts a confirmed GRN (+ its resolved Business/Branch) into the
+structured payload expected by fill_kra.py and the eTIMS REST API.
 
-Supports Cleanshelf / Naivas / Quickmart image GRNs.
+Returns a 3-tuple: (invoice_header, items_list, meta) where:
+  invoice_header – dict consumed by fill_kra.invoice_dict_to_receipt()
+  items_list     – list of line-item dicts (keys aligned with fill_kra.grn_to_receipt)
+  meta           – carries business_id, branch_id, business_name, branch_name,
+                   invoice_amount, store_number, invoice_number for stamping
+                   onto the EtimsInvoice row.
 
-Environment variable required:
-    nvapi – NVIDIA API key
+Invoice numbering
+─────────────────
+Each store (identified by its store_no) has its own sequential invoice counter.
+The STORE_SEED_INVOICE map records the last invoice number that was manually
+submitted before this system took over.  On every new submission the system:
 
-Output dict shape (identical to read_pdf.py):
-{
-    "receipt_voucher_no":  str | None,   # GRN No
-    "lpo_number":          str | None,
-    "delivery_invoice_no": str | None,   # Inv. No
-    "receipt_date":        str | None,
-    "store": {
-        "company_name": str | None,
-        "store_name":   str | None,
-        "address":      str | None,
-        "location":     str | None,
-    },
-    "supplier": {
-        "company_name": str | None,
-        "email":        str | None,
-    },
-    "items": [
-        {
-            "no":           int,
-            "item_code":    str,
-            "description":  str,
-            "uom":          str,
-            "qty_received": float,
-            "unit_price":   float,
-            "net_amount":   float,
-        },
-        ...
-    ],
-    "sub_total":   float | None,
-    "vat":         float,
-    "order_total": float | None,
-    "received_by":  str | None,
-    "confirmed_by": str | None,
-    "date":         str | None,
-}
+  1. Queries etims_invoices for the highest invoice_number already saved for
+     this store_number.
+  2. If a DB record exists → next = that number + 1.
+  3. If no DB record exists → next = seed + 1  (first automated invoice).
+  4. Saves the new invoice_number to the EtimsInvoice row via meta so the
+     caller (etims_tasks.submit_to_etims) can persist it before returning.
 """
 
-import base64
-import json
-import logging
-import os
-import re
-from pathlib import Path
+import uuid
 
-import requests
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-logger = logging.getLogger(__name__)
+from app.core.logging import get_logger
 
-_NVIDIA_OCR_URL = "https://ai.api.nvidia.com/v1/cv/nvidia/nemotron-ocr-v1"
+logger = get_logger(__name__)
 
-# ── UOM vocabulary ────────────────────────────────────────────────────────────
-_KNOWN_UOMS = {
-    "KGS", "KG", "PCS", "PKT", "LTR", "L", "EA",
-    "CTN", "BTL", "BAG", "TIN", "SET", "PAC", "BOX",
+
+# ── Store number lookup ────────────────────────────────────────────────────────
+# Key   = normalised store name (upper-case, stripped)
+# Value = store_no string used on the eTIMS invoice
+STORE_NUMBER_MAP: dict[str, str] = {
+    "NAIVASHA KUBWA"            : "6",    # LATEST INVOICE NO 014
+    "NAIVAS KUBWA"              : "6",    # LATEST INVOICE NO 014
+    "NAIVASHA NDOGO"            : "1",    # LATEST INVOICE NO 006
+    "NAIVAS NDOGO"              : "1",    # LATEST INVOICE NO 006
+    "NAIVAS SUPERCENTER"        : "19",   # LATEST INVOICE NO 004
+    "NAKURU SUPERCENTRE"        : "19",   # LATEST INVOICE NO 004
+    "NAKURU WESTSIDE"           : "63",   # LATEST INVOICE NO 011
+    "NAKURU MIDTOWN"            : "99",   # LATEST INVOICE NO 004
+    "NAIVAS CENTRAL FRUITS&VEG" : "91",   # LATEST INVOICE NO 007
+    "NAIVAS CENTRAL FRUITS"     : "91",   # LATEST INVOICE NO 007
+    "NAIVAS SAFARI"             : "110",  # LATEST INVOICE NO 199
+    "CLEANSHELF NAKURU"         : "CS1",  # LATEST INVOICE NO 101
+    "SAFARI CENTER NAIVASHA"    : "110",  # LATEST INVOICE NO 199
+}
+
+# Seed values = last invoice number submitted *manually* (before automation).
+# The next automated invoice for each store will be seed + 1.
+# Keys must match the store_no values in STORE_NUMBER_MAP exactly.
+STORE_SEED_INVOICE: dict[str, int] = {
+    "6"   : 14,   # NAIVAS KUBWA / NAIVASHA KUBWA
+    "1"   : 6,    # NAIVAS NDOGO / NAIVASHA NDOGO
+    "19"  : 4,    # NAIVAS SUPERCENTER
+    "63"  : 11,   # NAKURU WESTSIDE
+    "99"  : 4,    # NAKURU MIDTOWN
+    "91"  : 7,    # NAIVAS CENTRAL FRUITS & VEG
+    "110" : 199,  # NAIVAS SAFARI / SAFARI CENTER NAIVASHA
+    "CS1" : 101,  # CLEANSHELF NAKURU
 }
 
 
-# ═════════════════════════════════════════════════════════════════════════════
-#  Public entry point
-# ═════════════════════════════════════════════════════════════════════════════
+import re
 
-def extract_grn_from_image(image_path: str) -> dict:
+# Matches " P.O. BOX …", " P O BOX …", " PO BOX …", " P.O BOX …" and variants,
+# plus plain " BOX …" — everything from that point to end of string is stripped.
+_ADDRESS_RE = re.compile(
+    r"\s+P\.?\s*O\.?\s*BOX\b.*$|\s+BOX\s+\d.*$",
+    re.IGNORECASE,
+)
+
+
+def _strip_address(name: str) -> str:
+    """Remove trailing P.O. BOX / address fragments from a company name."""
+    if not name:
+        return name
+    return _ADDRESS_RE.sub("", name).strip()
+
+
+def get_store_no(store_name: str) -> str:
+    """Return the store number string for a given store name, or '?' if unknown."""
+    if not store_name:
+        return "?"
+    key = store_name.strip().upper()
+    if key in STORE_NUMBER_MAP:
+        return STORE_NUMBER_MAP[key]
+    for map_key, number in STORE_NUMBER_MAP.items():
+        if map_key in key or key in map_key:
+            return number
+    return "?"
+
+
+async def next_invoice_number(db: AsyncSession, store_no: str) -> int:
     """
-    Run OCR on *image_path* via the NVIDIA API and return a GRN dict.
-    Drop-in replacement for the old PaddleOCR-based function.
+    Return the next sequential invoice number for *store_no*.
+
+    Strategy (per-store, not global):
+      • Look up all invoice_number values already stored in etims_invoices
+        for this store_number, filter to purely numeric ones, take the max.
+      • If found  → next = max + 1
+      • If not    → next = STORE_SEED_INVOICE[store_no] + 1
+                    (falls back to 1 if the store has no seed entry)
+
+    Alphanumeric legacy values (e.g. "2065Q") are skipped so they never
+    corrupt the counter.
     """
-    raw_detections = _call_nvidia_ocr(image_path)
-    rows           = _detections_to_rows(raw_detections)
-    tokens         = _rows_to_tokens(rows)
-    full_text      = " ".join(tokens)
+    from app.db.models.etims_invoice import EtimsInvoice
 
-    logger.debug("OCR full_text:\n%s", "\n".join(" | ".join(r) for r in rows))
-
-    return _parse(tokens, full_text, rows)
-
-
-# ═════════════════════════════════════════════════════════════════════════════
-#  NVIDIA OCR helpers
-# ═════════════════════════════════════════════════════════════════════════════
-
-def _call_nvidia_ocr(image_path: str) -> list[dict]:
-    """
-    POST the image to the NVIDIA Nemotron-OCR endpoint.
-    Returns the raw list of text-detection dicts.
-    """
-    api_key = os.environ.get("nvapi") or os.environ.get("NVAPI_KEY")
-    if not api_key:
-        raise EnvironmentError(
-            "NVIDIA OCR API key not found. "
-            "Set the 'nvapi' (or 'NVAPI_KEY') environment variable."
+    result = await db.execute(
+        select(EtimsInvoice.invoice_number)
+        .where(
+            EtimsInvoice.store_number == store_no,
+            EtimsInvoice.invoice_number.is_not(None),
         )
+    )
+    rows = result.scalars().all()
 
-    suffix = Path(image_path).suffix.lower()
-    mime   = "image/jpeg" if suffix in (".jpg", ".jpeg") else f"image/{suffix.lstrip('.')}"
-
-    with open(image_path, "rb") as fh:
-        image_b64 = base64.b64encode(fh.read()).decode()
-
-    if len(image_b64) > 180_000:
-        raise ValueError(
-            f"Image '{image_path}' is too large for the inline API "
-            "(> ~135 KB encoded). Use the NVIDIA assets API for large files."
-        )
-
-    payload = {
-        "input": [{"type": "image_url", "url": f"data:{mime};base64,{image_b64}"}]
-    }
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Accept":        "application/json",
-    }
-
-    response = requests.post(_NVIDIA_OCR_URL, headers=headers, json=payload, timeout=30)
-    response.raise_for_status()
-
-    data = response.json()
-    try:
-        return data["data"][0]["text_detections"]
-    except (KeyError, IndexError) as exc:
-        raise ValueError(f"Unexpected NVIDIA OCR response shape: {exc}") from exc
-
-
-def _detections_to_rows(
-    detections: list[dict],
-    y_threshold: float = 0.008,
-) -> list[list[str]]:
-    """
-    Convert raw bounding-box detections into ordered rows of text tokens.
-
-    Each detection item has the shape:
-        {
-          "text_prediction": {"text": "...", "confidence": 0.91},
-          "bounding_box":    {"points": [{"x": ..., "y": ...}, ...]},
-        }
-    """
-    items: list[dict] = []
-    for det in detections:
+    max_saved: int | None = None
+    for raw in rows:
         try:
-            text   = det["text_prediction"]["text"].strip()
-            points = det["bounding_box"]["points"]
-            if not text:
-                continue
+            val = int(raw)
+            if max_saved is None or val > max_saved:
+                max_saved = val
+        except (TypeError, ValueError):
+            pass  # skip alphanumeric legacy values like "2065Q"
 
-            ys       = [p["y"] for p in points]
-            center_y = (min(ys) + max(ys)) / 2
-            min_x    = min(p["x"] for p in points)
+    if max_saved is not None:
+        return max_saved + 1
 
-            items.append({"text": text, "center_y": center_y, "min_x": min_x})
-        except KeyError:
-            continue
-
-    # Sort top-to-bottom
-    items.sort(key=lambda d: d["center_y"])
-
-    # Group into rows by vertical proximity
-    rows:        list[list[dict]] = []
-    current_row: list[dict]       = []
-
-    for item in items:
-        if not current_row:
-            current_row.append(item)
-        else:
-            avg_y = sum(i["center_y"] for i in current_row) / len(current_row)
-            if abs(item["center_y"] - avg_y) <= y_threshold:
-                current_row.append(item)
-            else:
-                rows.append(current_row)
-                current_row = [item]
-    if current_row:
-        rows.append(current_row)
-
-    # Sort each row left-to-right and return only the text strings
-    return [
-        [i["text"] for i in sorted(row, key=lambda d: d["min_x"])]
-        for row in rows
-    ]
+    seed = STORE_SEED_INVOICE.get(store_no, 0)
+    return seed + 1
 
 
-def _rows_to_tokens(rows: list[list[str]]) -> list[str]:
-    """Flatten all rows into a single list of tokens."""
-    return [tok for row in rows for tok in row]
+async def build_etims_payload(
+    confirmed_data: dict,
+    invoice_no: str,
+    db: AsyncSession,
+    *,
+    business_id:   uuid.UUID | None = None,
+    branch_id:     uuid.UUID | None = None,
+    business_name: str | None       = None,
+    branch_name:   str | None       = None,
+) -> tuple[dict, list[dict], dict]:
+    """
+    Converts confirmed GRN data into (invoice_header, items_list, meta).
 
+    Args:
+        confirmed_data: the JSONB dict stored in grn.confirmed_data
+        invoice_no:     the GRN-level invoice reference (grn.invoice_no) — kept
+                        for backwards-compat but the sequential number now takes
+                        precedence in the remark and on the invoice header
+        db:             async DB session — needed to query the invoice counter
+        business_id:    UUID of the resolved Business (from grn.business_id)
+        branch_id:      UUID of the resolved Branch   (from grn.branch_id)
+        business_name:  snapshot name for denormalisation
+        branch_name:    snapshot name for denormalisation
 
-# ═════════════════════════════════════════════════════════════════════════════
-#  GRN parser
-# ═════════════════════════════════════════════════════════════════════════════
+    Returns:
+        invoice  – header dict for fill_kra.invoice_dict_to_receipt()
+        items    – list of line-item dicts
+        meta     – dict with business_id, branch_id, business_name,
+                   branch_name, invoice_amount, store_number, invoice_number
+                   (caller MUST write invoice_number back to EtimsInvoice row
+                    so the counter advances correctly next time)
 
-def _find(text: str, pattern: str) -> str | None:
-    m = re.search(pattern, text, re.IGNORECASE)
-    return m.group(1).strip() if m else None
+    Raises:
+        ValueError if confirmed_data has no items
+    """
+    items_raw = confirmed_data.get("items", [])
+    if not items_raw:
+        raise ValueError("No items found in confirmed GRN data")
 
-
-def _parse(tokens: list[str], full_text: str, rows: list[list[str]]) -> dict:
-    grn: dict = {}
-
-    # ── 1. Header / non-fiscal fields ─────────────────────────────────────────
-    # GRN No  — "G.R.N. No. 57662" or "GRN No 57662"
-    grn["receipt_voucher_no"] = (
-        _find(full_text, r"G\.?R\.?N\.?\s*No\.?\s*[:\s]*(\d+)")
-        or _find(full_text, r"GRN\s*No\.?\s*[:\s]*(\d+)")
+    # ── Resolve store identity ────────────────────────────────────────────────
+    store_block = confirmed_data.get("store") or {}
+    resolved_store_name = _strip_address(
+        branch_name
+        or store_block.get("store_name")
+        or store_block.get("company_name")
+        or business_name
+        or ""
+    )
+    resolved_business_name = _strip_address(
+        business_name
+        or store_block.get("company_name")
+        or "NAIVAS LIMITED"
     )
 
-    # LPO No  — "LPO No. 72233" or "LPO No 72233"
-    grn["lpo_number"] = (
-        _find(full_text, r"LPO\s*No\.?\s*[:\s]*(\d+)")
-        or _find(full_text, r"LPO\s*[:\s]+([A-Z0-9]+)")
+    store_no = get_store_no(resolved_store_name)
+
+    # ── Fall back to Branch record if name lookup failed ─────────────────────
+    # If the store name wasn't found in STORE_NUMBER_MAP we hit the DB and:
+    #   1. Use branch.store_number as the store_no.
+    #   2. Replace resolved_store_name with branch.branch_name so the remark
+    #      and buyer display name reflect the canonical DB value, not whatever
+    #      unrecognised string came in on the GRN.
+    if store_no == "?" and branch_id:
+        from app.db.models.business import Branch as BranchModel
+        _branch = await db.get(BranchModel, branch_id)
+        if _branch:
+            if _branch.store_number:
+                store_no = _branch.store_number
+            if _branch.branch_name:
+                original_store_name = resolved_store_name
+                resolved_store_name = _branch.branch_name
+                logger.info(
+                    "store name %r not in STORE_NUMBER_MAP — "
+                    "resolved to branch.branch_name=%r, store_number=%r from DB",
+                    original_store_name, resolved_store_name, store_no,
+                )
+
+    # ── Resolve business mobile number ────────────────────────────────────────
+    # Priority: Business.phone → Branch.phone → GRN store block → fallback
+    cust_mbl_no = "0722000000"   # safe fallback
+    if business_id:
+        from app.db.models.business import Business as BusinessModel, Branch as BranchModel
+        business_obj = await db.get(BusinessModel, business_id)
+        if business_obj and business_obj.phone:
+            cust_mbl_no = business_obj.phone
+        elif branch_id:
+            branch_obj = await db.get(BranchModel, branch_id)
+            if branch_obj and branch_obj.phone:
+                cust_mbl_no = branch_obj.phone
+
+    seq_no = await next_invoice_number(db, store_no)
+    # Zero-pad to 3 digits to match existing format (006, 014, 199, …)
+    seq_no_str = str(seq_no).zfill(3)
+
+    logger.info(
+        "Invoice sequence: store_no=%s → next invoice_number=%s",
+        store_no, seq_no_str,
     )
 
-    # Invoice No  — "Iev. No. 2166" / "Inv. No. 2166" / "Invoice No 2166"
-    grn["delivery_invoice_no"] = (
-        _find(full_text, r"I[ne][vV]\.?\s*No\.?\s*[:\s]*(\d+)")
-        or _find(full_text, r"Invoice\s*No\.?\s*[:\s]*([A-Z0-9]+)")
-        or _find(full_text, r"Delivery\s*(?:note/)?Invoice\s*No[:\s]+([A-Z0-9]+)")
+    # ── Build remark string ───────────────────────────────────────────────────
+    remark = (
+        f"Order No.{confirmed_data.get('lpo_number', '')},"
+        f"Delivery Note No.{confirmed_data.get('delivery_invoice_no', '')},"
+        f"Grn No. {confirmed_data.get('receipt_voucher_no', '')},"
+        f"Invoice No.{seq_no_str},"
+        f"Store No {store_no}"
     )
 
-    # GRN Date — "GRN Date 27 Mar 2026" or "Receipt Date 01 Jan 2025"
-    grn["receipt_date"] = (
-        _find(full_text, r"GRN\s*Date\s+(\d{1,2}\s+\w+\s+\d{4})")
-        or _find(full_text, r"Receipt\s*Date\s+(\d{1,2}\s+\w+\s+\d{4})")
-        or _find(full_text, r"Date\s+(\d{1,2}\s+\w+\s+\d{4})")
-    )
+    # ── Buyer display name: "Business Name - Branch Name" ────────────────────
+    if resolved_store_name and resolved_store_name != resolved_business_name:
+        cust_nm = f"{resolved_business_name} - {resolved_store_name}"
+    else:
+        cust_nm = resolved_business_name
 
-    # ── 2. Store / company ─────────────────────────────────────────────────────
-    company_match = re.search(
-        r"(NAIVAS\b[^,\n]*|CLEANSHELF\b[^,\n]*|QUICKMART\b[^,\n]*)",
-        full_text, re.IGNORECASE,
-    )
-    company_name = company_match.group(1).strip() if company_match else None
-
-    store_name = _find(full_text, r"Store\s*Name\s+(.+?)(?:\s{2,}|Store|$)")
-    location   = _find(
-        full_text,
-        r"\b(NAKURU|NAIROBI|MOMBASA|KISUMU|ELDORET|THIKA|RUIRU|KAREN|WESTLANDS|MLOLONGO)\b",
-    )
-
-    grn["store"] = {
-        "company_name": company_name,
-        "store_name":   store_name or location,
-        "address":      _find(full_text, r"(P\.O\.?\s*BOX\s*[\d\-]+[^\s,]*)"),
-        "location":     location,
+    # ── Invoice header ────────────────────────────────────────────────────────
+    invoice = {
+        "custTin"       : "",
+        "custNm"        : cust_nm,
+        "custBranchNm"  : resolved_store_name,
+        "custMblNo"     : cust_mbl_no,
+        "custMblFornNo" : "",
+        "pmtTyCd"       : "07",
+        "remark"        : remark,
+        "invoice_no"    : seq_no_str,
     }
 
-    # ── 3. Supplier ────────────────────────────────────────────────────────────
-    grn["supplier"] = {
-        "company_name": (
-            _find(full_text, r"(QUALITY\s+OUTSOURCE\s+SOLUTION[^\s,\n]*)")
-            or _find(full_text, r"Supplier\s+([A-Z][A-Za-z ]+?)(?:\s{2,}|GRN|$)")
-        ),
-        "email": _find(full_text, r"(\S+@\S+\.\S+)"),
-    }
-
-    # ── 4. Line items ──────────────────────────────────────────────────────────
-    # Strategy: scan tokens for 6-digit item codes, then collect
-    # description + numeric columns from following tokens / the same row.
-    items: list[dict] = []
-    i = 0
-
-    while i < len(tokens):
-        tok = tokens[i]
-
-        if not re.fullmatch(r"\d{6}", tok):
-            i += 1
-            continue
-
-        item_code   = tok
-        description: list[str] = []
-        qty          = None
-        uom          = None
-        unit_price   = None
-        net_amount   = None
-
-        j = i + 1
-        while j < len(tokens):
-            t = tokens[j]
-
-            # Stop at next item code or section keywords
-            if re.fullmatch(r"\d{6}", t):
-                break
-            if re.search(
-                r"^(Net\s*A[Mm]|VAT\s*A|Total\s*A|With\s*Hold|Prepared|Authorised|"
-                r"Approved|Checked|\*+End|Printed)",
-                t, re.IGNORECASE,
-            ):
-                break
-
-            t_upper = t.upper().rstrip("S")  # "KGS" → "KG"
-
-            # UOM token
-            if t.upper() in _KNOWN_UOMS or t_upper in _KNOWN_UOMS:
-                uom = t.upper()
-                j += 1
-                continue
-
-            # Numeric token (possibly with commas, colons, or % junk)
-            clean = t.replace(",", "").replace(":", ".").rstrip(".")
-            # Strip trailing non-numeric characters like "96" after a number
-            clean = re.sub(r"[^\d.]", "", clean)
-            if re.fullmatch(r"\d+\.?\d*", clean) and clean:
-                val = float(clean)
-                # Heuristic: percentages (>100 are unlikely cost prices for
-                # qty / price unless they're clearly large totals)
-                if qty is None and val < 10_000:
-                    qty = val
-                elif unit_price is None:
-                    unit_price = val
-                elif net_amount is None:
-                    # The Cleanshelf GRN has many price columns after unit price
-                    # (Last CP, CP incl., SP incl., margin …).
-                    # We take the SECOND price as unit_price (CP incl.) and
-                    # stop there; net_amount is calculated below.
-                    net_amount = val
-                    j += 1
-                    break
-                j += 1
-                continue
-
-            # Skip punctuation / noise tokens
-            if re.fullmatch(r"[.,:\-|%]+", t) or t in ("1", "0"):
-                j += 1
-                continue
-
-            # Otherwise it contributes to the description
-            description.append(t)
-            j += 1
-
-        # Compute net_amount if it wasn't read directly
-        computed_net = round((qty or 1.0) * (unit_price or 0.0), 2)
-        if net_amount is None:
-            net_amount = computed_net
-
+    # ── Line items ────────────────────────────────────────────────────────────
+    items = []
+    for raw in items_raw:
+        if hasattr(raw, "model_dump"):
+            raw = raw.model_dump()
         items.append({
-            "no":           len(items) + 1,
-            "item_code":    item_code,
-            "description":  " ".join(description).strip(),
-            "uom":          uom or "PCS",
-            "qty_received": qty or 1.0,
-            "unit_price":   unit_price or 0.0,
-            "net_amount":   net_amount,
+            "itemCd" : "",
+            "itemNm" : raw.get("description", ""),
+            "uom"    : raw.get("uom", "KG"),
+            "qty"    : float(raw.get("qty_received", 1)),
+            "prc"    : float(raw.get("unit_price", 0)),
+            "dcRt"   : 0.0,
         })
-        i = j
 
-    grn["items"] = items
+    # ── Meta: stamp onto EtimsInvoice row ─────────────────────────────────────
+    # store_number and invoice_number MUST be persisted by the caller so the
+    # counter keeps advancing correctly on the next submission for this store.
+    meta = {
+        "business_id"    : business_id,
+        "branch_id"      : branch_id,
+        "business_name"  : resolved_business_name,
+        "branch_name"    : resolved_store_name,
+        "invoice_amount" : float(confirmed_data.get("order_total") or 0),
+        "store_number"   : store_no,
+        "invoice_number" : seq_no_str,
+    }
 
-    # ── 5. Totals ──────────────────────────────────────────────────────────────
-    def _money(pattern: str) -> float | None:
-        s = _find(full_text, pattern)
-        return float(s.replace(",", "")) if s else None
-
-    grn["sub_total"]   = _money(r"Net\s*A[Mm][Oo][Uu][Nn][Tt]\s*[:\|]?\s*([\d,]+\.\d{2})")
-    grn["vat"]         = _money(r"VAT\s*A[Mm][Oo][Uu][Nn][Tt]\s*[:\|]?\s*([\d,]+\.\d{2})") or 0.0
-    grn["order_total"] = (
-        _money(r"Total\s*A[Rr]?[Oo][Uu][Nn][Tt]\s*[:\|]?\s*([\d,]+\.\d{2})")
-        or _money(r"Total\s*Net\s*Amount\s*TO\s*Pay\s*[:\|]?\s*([\d,]+\.\d{2})")
+    logger.info(
+        "Built eTIMS payload: invoice_number=%s  store=%s  business=%s  branch=%s  items=%d",
+        seq_no_str, store_no, resolved_business_name, resolved_store_name, len(items),
     )
-
-    # ── 6. Signatories ─────────────────────────────────────────────────────────
-    grn["received_by"]  = _find(full_text, r"Prepared\s+By\s+([A-Za-z]+)")
-    grn["confirmed_by"] = _find(full_text, r"Authoris[e]?d\s+By\s+([A-Za-z ]+?)(?:\s{2,}|$|Approved)")
-    grn["date"]         = _find(full_text, r"Date\s+(\d{1,2}\s+\w+,?\s+\d{4})")
-
-    return grn
-
-
-# ═════════════════════════════════════════════════════════════════════════════
-#  Standalone test
-# ═════════════════════════════════════════════════════════════════════════════
-
-if __name__ == "__main__":
-    import sys
-
-    logging.basicConfig(level=logging.DEBUG)
-    path   = sys.argv[1] if len(sys.argv) > 1 else "test.jpeg"
-    result = extract_grn_from_image(path)
-    print(json.dumps(result, indent=2))
+    return invoice, items, meta
