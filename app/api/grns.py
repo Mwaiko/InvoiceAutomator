@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/grns", tags=["grns"])
 
-LOCKED_STATUSES = {GRNStatus.confirmed, GRNStatus.invoiced}
+LOCKED_STATUSES = {GRNStatus.invoiced}
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
