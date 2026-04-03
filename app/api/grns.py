@@ -29,7 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import CurrentUser, PaginationDep, get_db
 from app.core.exceptions import GRNLockedError, NotFoundError
 from app.db.models.grn import GRN, GRNStatus
-from app.db.models.etims_invoice import EtimsInvoice, EtimsStatus
+from app.db.models.etims_invoice import EtimsInvoice, EtimsStatus,PaymentStatus
 from app.schemas.grn import GRNConfirmRequest, GRNRejectRequest, GRNResponse
 from app.services import file_storage, grn_extractor
 from app.services.business_resolver import (
@@ -338,7 +338,71 @@ async def reject_grn(
     grn = await _get_grn_with_uploader(db, grn.id)
     return GRNResponse.from_orm_grn(grn)
 
+# app/api/grns.py
 
+# app/api/grns.py
+
+@router.post("/{grn_id}/force-reject", response_model=GRNResponse)
+async def force_reject_invoiced_grn(
+    grn_id: uuid.UUID,
+    body: GRNRejectRequest,
+    db: AsyncSession = Depends(get_db),# High-privilege access recommended
+):
+    """
+    Forcefully rejects an invoiced GRN and reverses all financial impacts.
+    
+    Integrity Steps:
+    1. Reverts Business/Branch 'total_invoiced' (from the initial confirmation).
+    2. Reverts Business/Branch 'total_paid' (from any recorded payments).
+    3. Sets Invoice and GRN statuses to 'rejected'.
+    """
+    grn = await _get_grn_with_uploader(db, grn_id)
+    
+    # Financial Integrity Guard: Find the latest associated invoice
+    inv_result = await db.execute(
+        select(EtimsInvoice)
+        .where(EtimsInvoice.grn_id == grn.id)
+        .order_by(EtimsInvoice.created_at.desc())
+        .limit(1)
+    )
+    etims_inv = inv_result.scalar_one_or_none()
+
+    if etims_inv:
+        # 1. Calculate the reversal amounts
+        # We must subtract exactly what is currently held in the invoice
+        inv_amount = float(etims_inv.invoice_amount or 0)
+        paid_amount = float(etims_inv.amount_paid or 0)
+
+        # 2. Reverse Business Balances
+        if etims_inv.business_id:
+            from app.db.models.business import Business as BusinessModel
+            biz = await db.get(BusinessModel, etims_inv.business_id)
+            if biz:
+                # Subtracting these ensures the AR rollup 'outstanding_amount' is corrected
+                biz.total_invoiced = float(biz.total_invoiced or 0) - inv_amount
+                biz.total_paid = float(biz.total_paid or 0) - paid_amount
+
+        # 3. Reverse Branch Balances
+        if etims_inv.branch_id:
+            from app.db.models.business import Branch
+            br = await db.get(Branch, etims_inv.branch_id)
+            if br:
+                br.total_invoiced = float(br.total_invoiced or 0) - inv_amount
+                br.total_paid = float(br.total_paid or 0) - paid_amount
+
+        # 4. Mark the Invoice as Rejected
+        etims_inv.status = EtimsStatus.rejected
+        etims_inv.payment_status = PaymentStatus.pending
+        etims_inv.error_message = f"Force rejected: {body.reason}"
+
+    # 5. Update GRN State
+    grn.status = GRNStatus.rejected
+    grn.rejection_reason = f"FORCE REJECT: {body.reason}"
+
+    await db.commit()
+    await db.refresh(grn)
+    
+    return GRNResponse.from_orm_grn(grn)
 @router.post("/{grn_id}/retry-invoice", response_model=GRNResponse)
 async def retry_invoice(
     grn_id: uuid.UUID,
