@@ -172,3 +172,68 @@ class GRNResponse(BaseModel):
             schema.uploaded_by_name  = uploader.full_name
             schema.uploaded_by_email = uploader.email
         return schema
+
+class EtimsPayloadPreviewRequest(BaseModel):
+    """
+    Request body for POST /grns/{id}/etims-preview.
+ 
+    Accepts the same confirmed_data shape as GRNConfirmRequest so the Flutter
+    client can reuse the exact same object it would pass to /confirm.
+ 
+    override_business_id / override_branch_id are lifted to the top level so
+    the preview route can resolve names without digging into model_extra.
+    """
+    confirmed_data:       "GRNConfirmedData"   # noqa: F821  (forward ref, same file)
+    invoice_no:           str | None       = None
+    override_business_id: uuid.UUID | None = None
+    override_branch_id:   uuid.UUID | None = None
+ 
+ 
+class EtimsLineItemPreview(BaseModel):
+    """One line item as it will appear in the KRA payload."""
+    sequence:      int
+    item_code:     str | None = None
+    description:   str
+    uom:           str
+    qty:           float
+    unit_price:    float
+    discount_rate: float
+    total:         float   # qty × unit_price (before any discount)
+ 
+ 
+class EtimsPayloadPreviewResponse(BaseModel):
+    """
+    Full read-only view of the eTIMS payload that *would* be submitted to KRA.
+ 
+    The invoice_no shown here is the next sequential number for this store
+    at the moment the preview is generated.  It may increment by 1 if another
+    GRN is confirmed before this one — add a note to the UI accordingly.
+    """
+ 
+    # ── Invoice header ────────────────────────────────────────────────────────
+    cust_tin:        str | None = None
+    cust_nm:         str                    # "Business Name - Branch Name"
+    cust_branch_nm:  str
+    cust_mbl_no:     str
+    pmt_ty_cd:       str                    # always "07" for now
+    remark:          str                    # the full remark string
+    invoice_no:      str                    # zero-padded sequential number
+ 
+    # ── Resolved store identity ───────────────────────────────────────────────
+    store_number:    str                    # "?" if unknown
+    business_name:   str
+    branch_name:     str
+ 
+    # ── Financials ────────────────────────────────────────────────────────────
+    invoice_amount:  float
+    items_total:     float                  # sum of all line-item totals
+    item_count:      int
+ 
+    # ── Line items ────────────────────────────────────────────────────────────
+    items: list[EtimsLineItemPreview]
+ 
+    # ── Operator warnings ─────────────────────────────────────────────────────
+    # Non-fatal issues the operator should acknowledge before confirming.
+    # e.g. unknown store number, zero-price items, mobile number is fallback.
+    warnings: list[str] = Field(default_factory=list)
+ 

@@ -1,2 +1,4 @@
 Auto Refresh or Reload when switching screens it just sends the new saves the previous(backend repos)
 Pre-Generated instance haaving the full data of the grn before submission
+(Rethink The store NO AND INVOICE nO ALLOCATION) =>Thinking of adding a new form Called Confirm Payload Data after Confirm
+The Auto Login Has Crashed Again

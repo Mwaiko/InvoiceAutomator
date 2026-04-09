@@ -36,6 +36,12 @@ from app.services.business_resolver import (
     post_confirmation_update_balances,
     resolve_business_and_branch,
 )
+from app.schemas.grn import (
+    EtimsPayloadPreviewRequest,
+    EtimsLineItemPreview,
+    EtimsPayloadPreviewResponse,
+)
+from app.services.etims_mapper import build_etims_payload
 
 logger = logging.getLogger(__name__)
 
@@ -524,3 +530,164 @@ async def retry_invoice(
 
     grn = await _get_grn_with_uploader(db, grn.id)
     return GRNResponse.from_orm_grn(grn)
+
+@router.post(
+    "/{grn_id}/etims-preview",
+    response_model=EtimsPayloadPreviewResponse,
+    summary="Preview the eTIMS payload without confirming",
+    description=(
+        "Builds and returns the exact payload that *would* be sent to KRA "
+        "when this GRN is confirmed. No state is changed. "
+        "The invoice_no reflects the next sequential number for the resolved "
+        "store at the moment of the request — it may shift by ±1 if another "
+        "GRN is confirmed concurrently."
+    ),
+)
+async def preview_etims_payload(
+    grn_id: uuid.UUID,
+    body: EtimsPayloadPreviewRequest,
+    db: AsyncSession = Depends(get_db),
+    # Replace with your actual auth dependency:
+    # current_user = Depends(get_current_active_user),
+) -> EtimsPayloadPreviewResponse:
+    # ── 1. Load GRN ───────────────────────────────────────────────────────────
+    grn = await db.get(GRN, grn_id)
+    if not grn:
+        raise HTTPException(status_code=404, detail=f"GRN {grn_id} not found.")
+ 
+    # Allow preview for any non-rejected status so operators can also preview
+    # before retrying an already-confirmed GRN.
+    if grn.status == GRNStatus.rejected:
+        raise HTTPException(
+            status_code=422,
+            detail="Cannot preview a rejected GRN. Reopen it first.",
+        )
+ 
+    # ── 2. Resolve business / branch IDs ─────────────────────────────────────
+    # Priority: explicit override in request body → DB-linked IDs on the GRN
+    business_id: uuid.UUID | None = body.override_business_id or grn.business_id
+    branch_id:   uuid.UUID | None = body.override_branch_id   or grn.branch_id
+ 
+    # Also accept override IDs passed inside confirmed_data.model_extra
+    # (mirrors how GRNConfirmRequest works on the confirm route).
+    if business_id is None:
+        raw_bid = (body.confirmed_data.model_extra or {}).get("business_id")
+        if raw_bid:
+            try:
+                business_id = uuid.UUID(str(raw_bid))
+            except ValueError:
+                pass
+ 
+    if branch_id is None:
+        raw_brid = (body.confirmed_data.model_extra or {}).get("branch_id")
+        if raw_brid:
+            try:
+                branch_id = uuid.UUID(str(raw_brid))
+            except ValueError:
+                pass
+ 
+    # ── 3. Resolve human-readable names ──────────────────────────────────────
+    business_name: str | None = None
+    branch_name:   str | None = None
+ 
+    if business_id:
+        from app.db.models.business import Business
+        biz = await db.get(Business, business_id)
+        if biz:
+            business_name = biz.name
+ 
+    if branch_id:
+        from app.db.models.business import Branch
+        brnch = await db.get(Branch, branch_id)
+        if brnch:
+            branch_name = brnch.branch_name
+ 
+    # Fall back to store block values if DB lookup found nothing
+    store_block = body.confirmed_data.store
+    if not business_name and store_block:
+        business_name = store_block.company_name
+    if not branch_name and store_block:
+        branch_name = store_block.store_name or store_block.location
+ 
+    # ── 4. Build payload (read-only — no DB writes) ───────────────────────────
+    try:
+        invoice_header, items_list, meta = await build_etims_payload(
+            confirmed_data = body.confirmed_data.to_storage_dict(),
+            invoice_no     = body.invoice_no,
+            db             = db,
+            business_id    = business_id,
+            branch_id      = branch_id,
+            business_name  = business_name,
+            branch_name    = branch_name,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+ 
+    # ── 5. Collect warnings ───────────────────────────────────────────────────
+    warnings: list[str] = []
+ 
+    if meta["store_number"] == "?":
+        warnings.append(
+            f'Store "{meta["branch_name"]}" was not found in the store number '
+            f"map. Invoice routing may fail — verify the branch name or add it "
+            f"to STORE_NUMBER_MAP in etims_mapper.py."
+        )
+ 
+    if not business_id and not branch_id:
+        warnings.append(
+            "No business or branch record is linked to this GRN. "
+            "The customer mobile number will use the system fallback (0722000000). "
+            "Consider picking a business from the DB picker."
+        )
+ 
+    for i, item in enumerate(items_list, start=1):
+        if item.get("prc", 0) == 0:
+            warnings.append(
+                f'Line item #{i} ("{item.get("itemNm", "")}") has a unit price '
+                f"of 0.00 — verify before confirming."
+            )
+ 
+    # ── 6. Build response ─────────────────────────────────────────────────────
+    preview_items = [
+        EtimsLineItemPreview(
+            sequence      = idx + 1,
+            item_code     = item.get("itemCd") or None,
+            description   = item.get("itemNm", ""),
+            uom           = item.get("uom", ""),
+            qty           = float(item.get("qty", 0)),
+            unit_price    = float(item.get("prc", 0)),
+            discount_rate = float(item.get("dcRt", 0)),
+            total         = float(item.get("qty", 0)) * float(item.get("prc", 0)),
+        )
+        for idx, item in enumerate(items_list)
+    ]
+ 
+    items_total = sum(i.total for i in preview_items)
+ 
+    logger.info(
+        "etims-preview: GRN %s → store=%s invoice_no=%s items=%d total=%.2f",
+        grn_id,
+        meta["store_number"],
+        meta["invoice_number"],
+        len(preview_items),
+        items_total,
+    )
+ 
+    return EtimsPayloadPreviewResponse(
+        cust_tin       = invoice_header.get("custTin") or None,
+        cust_nm        = invoice_header["custNm"],
+        cust_branch_nm = invoice_header["custBranchNm"],
+        cust_mbl_no    = invoice_header["custMblNo"],
+        pmt_ty_cd      = invoice_header["pmtTyCd"],
+        remark         = invoice_header["remark"],
+        invoice_no     = invoice_header["invoice_no"],
+        store_number   = meta["store_number"],
+        business_name  = meta["business_name"],
+        branch_name    = meta["branch_name"],
+        invoice_amount = meta["invoice_amount"],
+        items_total    = items_total,
+        item_count     = len(preview_items),
+        items          = preview_items,
+        warnings       = warnings,
+    )
+ 
