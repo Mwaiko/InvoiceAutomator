@@ -32,11 +32,32 @@ class EtimsInvoice(UUIDMixin, TimestampMixin, Base):
     )
     store_number: Mapped[str | None] = mapped_column(
         String(50), nullable=True,
-        comment="Branch-assigned store number, e.g. 110, 6, 99, 2065Q",
+        comment="Branch-assigned store number, e.g. 110, 6, 99",
     )
+
+    # ── Invoice reference numbers ──────────────────────────────────────────────
     invoice_number: Mapped[str | None] = mapped_column(
         String(100), nullable=True, index=True,
-        comment="Supplier's sequential invoice number, e.g. 2063 or 2065Q",
+        comment=(
+            "System-generated sequential eTIMS invoice number for this store, "
+            "zero-padded to 3 digits, e.g. '006', '014', '199'. "
+            "This is what appears on the KRA receipt and drives the per-store counter."
+        ),
+    )
+    cust_invoice_no: Mapped[str | None] = mapped_column(
+        String(100), nullable=True,
+        comment=(
+            "Customer's own invoice reference copied from grn.invoice_no, "
+            "e.g. '2063', '2065Q'. Recorded for reconciliation but does NOT "
+            "drive the eTIMS sequence counter."
+        ),
+    )
+    # Legacy alias kept for backwards-compat with older migrations/queries.
+    # Points to the same concept as cust_invoice_no; prefer cust_invoice_no
+    # in all new code.
+    invoice_no: Mapped[str | None] = mapped_column(
+        String(100), nullable=True,
+        comment="Deprecated alias for cust_invoice_no — do not use in new code.",
     )
 
     # ── Business / Branch (denormalised for financial reporting) ──────────────

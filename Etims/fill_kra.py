@@ -28,7 +28,7 @@ class InvoiceRecord:
     id:               str
     grn_number:       str
     store_number:     str
-    invoice_number:   str
+    invoice_number:   str   # unique conflict key — same as cust_invoice_no
     business_name:    str
     branch_name:      str
     status:           str
@@ -38,6 +38,8 @@ class InvoiceRecord:
     retry_count:      int
     created_at:       datetime
     updated_at:       datetime
+    cust_invoice_no:  str   # col 2 — NVS invoice no. (e.g. NVS-000026652)
+    invoice_no:       str   # col 7 — internal ref / KRA invoice no.
 
     def as_tuple(self) -> tuple:
         return astuple(self)
@@ -129,7 +131,7 @@ def parse_csv(file_path: Path) -> tuple[list[InvoiceRecord], list[dict]]:
             if not _is_data_row(row):
                 continue
 
-            inv_no = _col(row, 2) or f"MISSING-L{line_num}"
+            # inv_no is now derived inside the try block as cust_inv_no
 
             try:
                 invoice_amount = _parse_amount(_col(row, 4, "0"))
@@ -139,20 +141,25 @@ def parse_csv(file_path: Path) -> tuple[list[InvoiceRecord], list[dict]]:
                 # For pending invoices, amount_paid stays 0.
                 amount_paid = invoice_amount if payment_status == "paid" else 0.0
 
+                cust_inv_no = _col(row, 2) or f"MISSING-L{line_num}"
+                invoice_no  = _col(row, 7)
+
                 record = InvoiceRecord(
-                    id             = str(uuid.uuid4()),
-                    grn_number     = _col(row, 1),
-                    store_number   = _col(row, 8),
-                    invoice_number = inv_no,
-                    business_name  = BUSINESS_NAME,
-                    branch_name    = _col(row, 5).upper(),
-                    status         = "submitted",
-                    payment_status = payment_status,
-                    invoice_amount = invoice_amount,
-                    amount_paid    = amount_paid,
-                    retry_count    = 0,
-                    created_at     = _parse_date(row[0]),
-                    updated_at     = datetime.now(),
+                    id              = str(uuid.uuid4()),
+                    grn_number      = _col(row, 1),
+                    store_number    = _col(row, 8),
+                    invoice_number  = cust_inv_no,   # unique conflict key
+                    business_name   = BUSINESS_NAME,
+                    branch_name     = _col(row, 5).upper(),
+                    status          = "submitted",
+                    payment_status  = payment_status,
+                    invoice_amount  = invoice_amount,
+                    amount_paid     = amount_paid,
+                    retry_count     = 0,
+                    created_at      = _parse_date(row[0]),
+                    updated_at      = datetime.now(),
+                    cust_invoice_no = cust_inv_no,
+                    invoice_no      = invoice_no,
                 )
                 records.append(record)
 
@@ -184,15 +191,18 @@ INSERT_QUERY = """
     INSERT INTO etims_invoices (
         id, grn_number, store_number, invoice_number,
         business_name, branch_name, status, payment_status,
-        invoice_amount, amount_paid, retry_count, created_at, updated_at
+        invoice_amount, amount_paid, retry_count, created_at, updated_at,
+        cust_invoice_no, invoice_no
     ) VALUES %s
     ON CONFLICT (invoice_number) DO UPDATE SET
-        grn_number     = EXCLUDED.grn_number,
-        status         = EXCLUDED.status,
-        payment_status = EXCLUDED.payment_status,
-        invoice_amount = EXCLUDED.invoice_amount,
-        amount_paid    = EXCLUDED.amount_paid,
-        updated_at     = EXCLUDED.updated_at;
+        grn_number      = EXCLUDED.grn_number,
+        status          = EXCLUDED.status,
+        payment_status  = EXCLUDED.payment_status,
+        invoice_amount  = EXCLUDED.invoice_amount,
+        amount_paid     = EXCLUDED.amount_paid,
+        updated_at      = EXCLUDED.updated_at,
+        cust_invoice_no = EXCLUDED.cust_invoice_no,
+        invoice_no      = EXCLUDED.invoice_no;
 """
 
 def sync_to_postgres(records: list[InvoiceRecord], db_url: str) -> None:
@@ -251,8 +261,8 @@ def _print_sample(records: list[InvoiceRecord], n: int = 5) -> None:
         amount_str = f"{r.invoice_amount:>10,.2f}"
         paid_str   = f"{r.amount_paid:>10,.2f}"
         log.info(
-            "  [%s] GRN=%-14s INV=%-18s Branch=%-28s Store=%-4s Amount=%s  Paid=%s  Status=%s",
-            r.created_at.date(), r.grn_number, r.invoice_number,
+            "  [%s] GRN=%-14s CUST_INV=%-18s INV_NO=%-14s Branch=%-28s Store=%-4s Amount=%s  Paid=%s  Status=%s",
+            r.created_at.date(), r.grn_number, r.cust_invoice_no, r.invoice_no,
             r.branch_name, r.store_number, amount_str, paid_str, r.payment_status,
         )
 

@@ -1,14 +1,5 @@
 """
 app/schemas/etims.py
-
-Changes:
-  • EtimsInvoiceResponse → added grn_number, store_number, invoice_number
-    (the three fields that appear in the supplier statement spreadsheet but
-    were missing from the DB schema)
-  • EtimsInvoiceResponse → added business_id, branch_id, business_name,
-    branch_name, invoice_amount, amount_paid, outstanding_amount
-  • RecordPaymentRequest accepts an amount and auto-derives payment_status
-  • Added EtimsPaymentSummary for the business-level rollup view
 """
 
 import uuid
@@ -25,13 +16,15 @@ class EtimsInvoiceResponse(BaseModel):
     id:      uuid.UUID
     grn_id:  uuid.UUID | None
 
-    # ── Document reference numbers (matches supplier statement spreadsheet) ───
-    # grn_number    → Col C  e.g. "NVS-007602248"  (store-side GRN reference)
-    # store_number  → Col I  e.g. "110", "6", "2065Q"  (branch-assigned store no)
-    # invoice_number→ Col H  e.g. "2063", "1945"  (supplier's sequential invoice no)
-    grn_number:     str | None
-    store_number:   str | None
-    invoice_number: str | None
+    # ── Document reference numbers ────────────────────────────────────────────
+    # grn_number      → store-side GRN reference,  e.g. "NVS-007602248"
+    # store_number    → branch-assigned store no,   e.g. "110", "6"
+    # invoice_number  → system sequential eTIMS no, e.g. "006", "199"
+    # cust_invoice_no → customer's own invoice ref, e.g. "2063", "2065Q"
+    grn_number:      str | None
+    store_number:    str | None
+    invoice_number:  str | None
+    cust_invoice_no: str | None
 
     # Business / branch context
     business_id:   uuid.UUID | None

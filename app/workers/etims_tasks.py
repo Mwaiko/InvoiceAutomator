@@ -4,15 +4,8 @@ app/workers/etims_tasks.py
 Plain async function that reads a confirmed GRN, builds the eTIMS payload,
 converts it to a ReceiptHeader, and submits it to the KRA portal.
 
-Retry logic is handled internally with asyncio.sleep (MAX_RETRIES attempts,
-RETRY_DELAY seconds apart, with linear back-off).
-
-Development mode
-────────────────
-When APP_ENV=development the function skips the KRA portal and instead renders
-a local PDF preview.  The EtimsInvoice row is stamped with status=submitted and
-the local PDF path stored in kra_response so the rest of the app behaves
-identically to production.
+invoice_number   = system-generated sequential eTIMS number (e.g. "006")
+cust_invoice_no  = customer's own reference copied from grn.invoice_no (e.g. "2063")
 """
 
 import asyncio
@@ -56,13 +49,10 @@ def _get_etims_cfg() -> EtimsConfig:
 def _extract_kracu(response_data) -> str:
     """
     Robustly extract the KRACU invoice number from a KRA response dict.
-    Handles lists (run_fill returns a list), top-level keys, and common
-    nested containers ('data', 'rtnData', 'result').
     """
     if not response_data:
         return ""
 
-    # run_fill returns a list — unwrap to the first element
     if isinstance(response_data, list):
         response_data = response_data[0] if response_data else {}
 
@@ -71,13 +61,11 @@ def _extract_kracu(response_data) -> str:
 
     keys_to_check = ["invcNo", "cuInvcNo", "invoiceNo", "receiptNo"]
 
-    # 1. Top-level keys
     for key in keys_to_check:
         val = response_data.get(key)
         if val and "KRACU" in str(val):
             return str(val)
 
-    # 2. Common nested containers
     for nested_key in ["data", "rtnData", "result"]:
         nested = response_data.get(nested_key)
         if isinstance(nested, dict):
@@ -91,17 +79,15 @@ def _extract_kracu(response_data) -> str:
 
 async def submit_to_etims(grn_id: str, etims_invoice_id: str) -> dict:
     """
-    Background task (no Celery):
+    Background task:
 
     1. Load the confirmed GRN and its EtimsInvoice from the DB.
     2. Build the eTIMS payload via etims_mapper.build_etims_payload().
-    3. Convert to ReceiptHeader via fill_kra.invoice_dict_to_receipt().
-    4a. [PRODUCTION]  Submit to KRA portal via fill_kra.run_fill().
-        Retries up to MAX_RETRIES times on KraError before giving up.
-    4b. [DEVELOPMENT] Render a local PDF preview instead of calling KRA.
+       The mapper generates the sequential invoice_number for this store.
+    3. Copy grn.invoice_no → inv.cust_invoice_no (the customer's own reference).
+    4. Convert to ReceiptHeader and submit to KRA (or render dev PDF).
     5. Persist EtimsInvoice.status → submitted / rejected.
     """
-    # FIX: IDs arrive as strings from BackgroundTasks — convert to UUID first.
     grn_uuid = uuid.UUID(grn_id)
     inv_uuid = uuid.UUID(etims_invoice_id)
 
@@ -117,7 +103,6 @@ async def submit_to_etims(grn_id: str, etims_invoice_id: str) -> dict:
             return {"error": f"EtimsInvoice {etims_invoice_id} not found"}
 
         # ── 1. Build payload ──────────────────────────────────────────────────
-        # FIX: build_etims_payload requires explicit keyword arguments, not (db, grn).
         try:
             invoice_header, items_list, meta = await build_etims_payload(
                 confirmed_data = grn.confirmed_data,
@@ -130,45 +115,53 @@ async def submit_to_etims(grn_id: str, etims_invoice_id: str) -> dict:
             )
         except ValueError as exc:
             logger.error("submit_to_etims: payload build failed for GRN %s: %s", grn_id, exc)
-            inv.status        = EtimsStatus.rejected   # FIX: EtimsStatus.failed does not exist
+            inv.status        = EtimsStatus.rejected
             inv.error_message = str(exc)
             await db.commit()
             return {"error": str(exc)}
 
-        # Lock invoice number before hitting KRA so retries never reuse it.
-        inv.store_number   = meta["store_number"]
-        inv.invoice_number = meta["invoice_number"]
+        # ── 2. Lock both numbers before hitting KRA ───────────────────────────
+        # invoice_number  = system sequential eTIMS number (e.g. "006")
+        # cust_invoice_no = customer's own reference from grn.invoice_no (e.g. "2063")
+        inv.store_number    = meta["store_number"]
+        inv.invoice_number  = meta["invoice_number"]   # sequential, drives the counter
+        inv.cust_invoice_no = grn.invoice_no or None   # customer ref — reconciliation only
+        # Keep the legacy column in sync so existing queries don't break.
+        inv.invoice_no      = grn.invoice_no or None
         await db.commit()
+
         logger.info(
-            "submit_to_etims: locked invoice_number=%s store_number=%s for EtimsInvoice %s",
-            meta["invoice_number"], meta["store_number"], etims_invoice_id,
+            "submit_to_etims: locked invoice_number=%s cust_invoice_no=%s "
+            "store_number=%s for EtimsInvoice %s",
+            meta["invoice_number"], inv.cust_invoice_no,
+            meta["store_number"], etims_invoice_id,
         )
 
-        # ── 2. Convert to ReceiptHeader ───────────────────────────────────────
+        # ── 3. Convert to ReceiptHeader ───────────────────────────────────────
         try:
             receipt_header = invoice_dict_to_receipt(invoice_header, items_list)
         except ValueError as exc:
             logger.error("submit_to_etims: receipt conversion failed for GRN %s: %s", grn_id, exc)
-            inv.status        = EtimsStatus.rejected   # FIX: was EtimsStatus.failed
+            inv.status        = EtimsStatus.rejected
             inv.error_message = str(exc)
             await db.commit()
             return {"error": str(exc)}
 
-        # ── 3. Development mode ───────────────────────────────────────────────
+        # ── 4. Development mode ───────────────────────────────────────────────
         if _is_dev():
             return await _dev_mode_pdf(grn_id, etims_invoice_id, receipt_header, inv, grn, db)
 
-        # ── 4. Production: submit to KRA with retry ───────────────────────────
+        # ── 5. Production: submit to KRA with retry ───────────────────────────
         cfg        = _get_etims_cfg()
         last_error = None
 
         for attempt in range(1, MAX_RETRIES + 1):
             try:
                 results    = await asyncio.to_thread(run_fill, cfg, receipt_header)
-                logger.info("Submission To Etims RESPONSE : %s",results)
-                print("=*"*50)
-                print("SUBMITTED TO ETIMS RESPONSE :",results)
-                print("=*"*50)
+                logger.info("Submission To Etims RESPONSE : %s", results)
+                print("=*" * 50)
+                print("SUBMITTED TO ETIMS RESPONSE :", results)
+                print("=*" * 50)
                 last_error = None
                 break
             except KraError as exc:
@@ -179,7 +172,7 @@ async def submit_to_etims(grn_id: str, etims_invoice_id: str) -> dict:
                     attempt, MAX_RETRIES, grn_id, exc,
                 )
                 if attempt < MAX_RETRIES:
-                    await db.commit()   # persist incremented retry_count
+                    await db.commit()
                     await asyncio.sleep(RETRY_DELAY_SECS * attempt)
 
         if last_error is not None:
@@ -187,12 +180,12 @@ async def submit_to_etims(grn_id: str, etims_invoice_id: str) -> dict:
                 "submit_to_etims: all %d KRA attempts exhausted for GRN %s: %s",
                 MAX_RETRIES, grn_id, last_error,
             )
-            inv.status        = EtimsStatus.rejected   # FIX: was EtimsStatus.failed
+            inv.status        = EtimsStatus.rejected
             inv.error_message = str(last_error)
             await db.commit()
             return {"error": str(last_error)}
 
-        # ── 5. Persist result ─────────────────────────────────────────────────
+        # ── 6. Persist result ─────────────────────────────────────────────────
         primary_result = results[0] if results else {}
 
         if primary_result.get("status") == "ok":
@@ -200,14 +193,9 @@ async def submit_to_etims(grn_id: str, etims_invoice_id: str) -> dict:
             grn.status       = GRNStatus.invoiced
             inv.kra_response = json.dumps(primary_result, default=str)
 
-            # run_fill now returns kra_invoice_no = last_receipt_no + 1
-            # (the predicted sequential receipt ID on KRA).
-            # Fall back to _extract_kracu() for any legacy KRACU string in the
-            # raw KRA response — whichever is non-empty wins.
-            predicted_no = primary_result.get("kra_invoice_no")
+            predicted_no        = primary_result.get("kra_invoice_no")
             kracu_from_response = _extract_kracu(primary_result.get("response") or primary_result)
-
-            kra_invoice_no = predicted_no or kracu_from_response or None
+            kra_invoice_no      = predicted_no or kracu_from_response or None
 
             if kra_invoice_no:
                 inv.kra_invoice_no = kra_invoice_no
@@ -222,7 +210,7 @@ async def submit_to_etims(grn_id: str, etims_invoice_id: str) -> dict:
                     etims_invoice_id, str(primary_result)[:300],
                 )
         else:
-            inv.status        = EtimsStatus.rejected   # FIX: was EtimsStatus.failed
+            inv.status        = EtimsStatus.rejected
             inv.error_message = primary_result.get("error", "unknown error")
             inv.retry_count   = (inv.retry_count or 0) + 1
 
@@ -242,10 +230,7 @@ async def _dev_mode_pdf(
     grn: "GRN",
     db,
 ) -> dict:
-    """
-    Render a local PDF preview and mark the invoice as submitted.
-    Called only when APP_ENV=development.
-    """
+    """Render a local PDF preview and mark the invoice as submitted (dev only)."""
     from app.services.etims_dev_pdf import render_dev_receipt_pdf
 
     dev_dir = Path(DEV_RECEIPT_DIR)
