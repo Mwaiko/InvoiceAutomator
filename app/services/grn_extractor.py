@@ -1,9 +1,4 @@
-"""
-app/services/grn_extractor.py
 
-Wraps your existing read_pdf.py / read_image_content.py scripts.
-Runs extraction in a thread pool so it doesn't block the async event loop.
-"""
 
 import asyncio
 import logging

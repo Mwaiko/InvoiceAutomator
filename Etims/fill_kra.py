@@ -18,8 +18,8 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 # ── CONFIGURATION ──────────────────────────────────────────────────────────────
-DB_URL = ""
-BUSINESS_NAME = "NAIVAS LIMITED"
+DB_URL = "postgresql://grn_db_user:ykNj3fBzPTAuG2aXiBNukuVQEZxuLkwP@dpg-d6vrl45m5p6s73ah11ng-a.virginia-postgres.render.com/grn_db?sslmode=require"
+BUSINESS_NAME = "Naivas Limited"
 
 # ── DATA MODEL ─────────────────────────────────────────────────────────────────
 
@@ -146,9 +146,9 @@ def parse_csv(file_path: Path) -> tuple[list[InvoiceRecord], list[dict]]:
 
                 record = InvoiceRecord(
                     id              = str(uuid.uuid4()),
-                    grn_number      = _col(row, 1),
+                    grn_number      = _col(row, 2),
                     store_number    = _col(row, 8),
-                    lpo_number      = _col(row, 2),   # unique conflict key
+                    lpo_number      = _col(row, 1),   
                     business_name   = BUSINESS_NAME,
                     branch_name     = _col(row, 5).upper(),
                     status          = "submitted",
@@ -182,9 +182,24 @@ def parse_csv(file_path: Path) -> tuple[list[InvoiceRecord], list[dict]]:
         seen[r.grn_number] = r
     records = list(seen.values())
 
-    # Make every lpo_number unique by appending a row index.
+    # If an lpo_number appears more than once, make each occurrence unique
+    # by appending the row index only for the duplicates.
+    lpo_counts: dict[str, int] = {}
+    for r in records:
+        key = r.lpo_number or ""
+        lpo_counts[key] = lpo_counts.get(key, 0) + 1
+
+    lpo_seen: dict[str, int] = {}
     for i, r in enumerate(records, start=1):
-        r.lpo_number = f"{r.lpo_number}-{i}" if r.lpo_number else str(i)
+        key = r.lpo_number or ""
+        if lpo_counts[key] > 1:
+            occurrence = lpo_seen.get(key, 0) + 1
+            lpo_seen[key] = occurrence
+            r.lpo_number = f"{r.lpo_number}-{i}" if r.lpo_number else str(i)
+            log.warning(
+                "Duplicate lpo_number %r (occurrence %d) — renamed to %r.",
+                key, occurrence, r.lpo_number,
+            )
 
     return records, failures
 

@@ -274,6 +274,8 @@ async def build_etims_payload(
         "invoice_amount" : float(confirmed_data.get("order_total") or 0),
         "store_number"   : store_no,
         "invoice_number" : seq_no_str,
+        'grn_no'         : confirmed_data.get('lpo_number', ''),
+        'lpo_number'         : confirmed_data.get('receipt_voucher_no', '')
     }
 
     logger.info(

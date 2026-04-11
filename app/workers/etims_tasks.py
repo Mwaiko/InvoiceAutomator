@@ -119,15 +119,15 @@ async def submit_to_etims(grn_id: str, etims_invoice_id: str) -> dict:
             inv.error_message = str(exc)
             await db.commit()
             return {"error": str(exc)}
-
+        
         # ── 2. Lock both numbers before hitting KRA ───────────────────────────
         # invoice_number  = system sequential eTIMS number (e.g. "006")
         # cust_invoice_no = customer's own reference from grn.invoice_no (e.g. "2063")
         inv.store_number    = meta["store_number"]
-        inv.invoice_number  = meta["invoice_number"]   # sequential, drives the counter
-        inv.cust_invoice_no = grn.invoice_no or None   # customer ref — reconciliation only
-        # Keep the legacy column in sync so existing queries don't break.
-        inv.invoice_no      = grn.invoice_no or None
+        inv.invoice_no  = meta["invoice_number"] 
+        inv.grn_number = meta["grn_no"] # sequential, drives the counter
+        inv.lpo_number = meta["lpo_number"]
+        inv.cust_invoice_no = grn.invoice_no or None   
         await db.commit()
 
         logger.info(
@@ -192,7 +192,7 @@ async def submit_to_etims(grn_id: str, etims_invoice_id: str) -> dict:
             inv.status       = EtimsStatus.submitted
             grn.status       = GRNStatus.invoiced
             inv.kra_response = json.dumps(primary_result, default=str)
-
+            
             predicted_no        = primary_result.get("kra_invoice_no")
             kracu_from_response = _extract_kracu(primary_result.get("response") or primary_result)
             kra_invoice_no      = predicted_no or kracu_from_response or None
