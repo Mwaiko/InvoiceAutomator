@@ -28,7 +28,7 @@ class InvoiceRecord:
     id:               str
     grn_number:       str
     store_number:     str
-    invoice_number:   str   # unique conflict key — same as cust_invoice_no
+    lpo_number:       str
     business_name:    str
     branch_name:      str
     status:           str
@@ -38,8 +38,8 @@ class InvoiceRecord:
     retry_count:      int
     created_at:       datetime
     updated_at:       datetime
-    cust_invoice_no:  str   # col 2 — NVS invoice no. (e.g. NVS-000026652)
-    invoice_no:       str   # col 7 — internal ref / KRA invoice no.
+    cust_invoice_no:  Optional[str]   
+    invoice_no:       Optional[str]   
 
     def as_tuple(self) -> tuple:
         return astuple(self)
@@ -110,7 +110,7 @@ def parse_csv(file_path: Path) -> tuple[list[InvoiceRecord], list[dict]]:
     Column mapping (0-based):
         0  → date          (M/D/YYYY)
         1  → GRN / PO no.
-        2  → NVS invoice no.
+        2  → NVS lpo no.
         3  → sequence no.  (ignored)
         4  → amount
         5  → branch name
@@ -141,14 +141,14 @@ def parse_csv(file_path: Path) -> tuple[list[InvoiceRecord], list[dict]]:
                 # For pending invoices, amount_paid stays 0.
                 amount_paid = invoice_amount if payment_status == "paid" else 0.0
 
-                cust_inv_no = _col(row, 2) or f"MISSING-L{line_num}"
-                invoice_no  = _col(row, 7)
+                cust_inv_no = _col(row, 3) or None
+                invoice_no  = _col(row, 7) or None
 
                 record = InvoiceRecord(
                     id              = str(uuid.uuid4()),
                     grn_number      = _col(row, 1),
                     store_number    = _col(row, 8),
-                    invoice_number  = cust_inv_no,   # unique conflict key
+                    lpo_number      = _col(row, 2),   # unique conflict key
                     business_name   = BUSINESS_NAME,
                     branch_name     = _col(row, 5).upper(),
                     status          = "submitted",
@@ -170,17 +170,21 @@ def parse_csv(file_path: Path) -> tuple[list[InvoiceRecord], list[dict]]:
                     "preview": row[:6],
                 })
 
-    # Deduplicate by invoice_number — last row in the CSV wins (matches upsert behaviour).
+    # Deduplicate by grn_number — last row in the CSV wins.
     seen: dict[str, InvoiceRecord] = {}
     for r in records:
-        if r.invoice_number in seen:
+        if r.grn_number in seen:
             log.warning(
-                "Duplicate invoice_number %r in CSV (lines kept: last occurrence). "
-                "GRN %r will overwrite GRN %r.",
-                r.invoice_number, r.grn_number, seen[r.invoice_number].grn_number,
+                "Duplicate grn_number %r in CSV (lines kept: last occurrence). "
+                "lpo_number %r will overwrite lpo_number %r.",
+                r.grn_number, r.lpo_number, seen[r.grn_number].lpo_number,
             )
-        seen[r.invoice_number] = r
+        seen[r.grn_number] = r
     records = list(seen.values())
+
+    # Make every lpo_number unique by appending a row index.
+    for i, r in enumerate(records, start=1):
+        r.lpo_number = f"{r.lpo_number}-{i}" if r.lpo_number else str(i)
 
     return records, failures
 
@@ -189,12 +193,12 @@ def parse_csv(file_path: Path) -> tuple[list[InvoiceRecord], list[dict]]:
 
 INSERT_QUERY = """
     INSERT INTO etims_invoices (
-        id, grn_number, store_number, invoice_number,
+        id, grn_number, store_number, lpo_number,
         business_name, branch_name, status, payment_status,
         invoice_amount, amount_paid, retry_count, created_at, updated_at,
         cust_invoice_no, invoice_no
     ) VALUES %s
-    ON CONFLICT (invoice_number) DO UPDATE SET
+    ON CONFLICT (lpo_number) DO UPDATE SET
         grn_number      = EXCLUDED.grn_number,
         status          = EXCLUDED.status,
         payment_status  = EXCLUDED.payment_status,

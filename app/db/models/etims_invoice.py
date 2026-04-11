@@ -36,7 +36,7 @@ class EtimsInvoice(UUIDMixin, TimestampMixin, Base):
     )
 
     # ── Invoice reference numbers ──────────────────────────────────────────────
-    invoice_number: Mapped[str | None] = mapped_column(
+    lpo_number: Mapped[str | None] = mapped_column(
         String(100), nullable=True, index=True,
         comment=(
             "System-generated sequential eTIMS invoice number for this store, "

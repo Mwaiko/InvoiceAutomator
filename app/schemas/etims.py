@@ -19,11 +19,11 @@ class EtimsInvoiceResponse(BaseModel):
     # ── Document reference numbers ────────────────────────────────────────────
     # grn_number      → store-side GRN reference,  e.g. "NVS-007602248"
     # store_number    → branch-assigned store no,   e.g. "110", "6"
-    # invoice_number  → system sequential eTIMS no, e.g. "006", "199"
+    # lpo_number  → system sequential eTIMS no, e.g. "006", "199"
     # cust_invoice_no → customer's own invoice ref, e.g. "2063", "2065Q"
     grn_number:      str | None
     store_number:    str | None
-    invoice_number:  str | None
+    lpo_number:  str | None
     cust_invoice_no: str | None
 
     # Business / branch context
