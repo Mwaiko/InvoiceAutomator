@@ -83,9 +83,9 @@ AccountantOrAdmin = Annotated[
 # ── Pagination ────────────────────────────────────────────────────────────────
 
 class Pagination:
-    def __init__(self, page: int = 1, page_size: int = 20):
+    def __init__(self, page: int = 1, page_size: int = 400):
         self.page = max(1, page)
-        self.page_size = min(max(1, page_size), 100)
+        self.page_size = min(max(1, page_size), 500)
 
     @property
     def offset(self) -> int:
