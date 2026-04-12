@@ -99,10 +99,10 @@ async def next_invoice_number(db: AsyncSession, store_no: str) -> int:
     from app.db.models.etims_invoice import EtimsInvoice
 
     result = await db.execute(
-        select(EtimsInvoice.invoice_number)
+        select(EtimsInvoice.lpo_number)
         .where(
             EtimsInvoice.store_number == store_no,
-            EtimsInvoice.invoice_number.is_not(None),
+            EtimsInvoice.lpo_number.is_not(None),
         )
     )
     rows = result.scalars().all()
@@ -151,8 +151,8 @@ async def build_etims_payload(
         invoice  – header dict for fill_kra.invoice_dict_to_receipt()
         items    – list of line-item dicts
         meta     – dict with business_id, branch_id, business_name,
-                   branch_name, invoice_amount, store_number, invoice_number
-                   (caller MUST write invoice_number back to EtimsInvoice row
+                   branch_name, invoice_amount, store_number, lpo_number
+                   (caller MUST write lpo_number back to EtimsInvoice row
                     so the counter advances correctly next time)
 
     Raises:
