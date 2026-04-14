@@ -15,6 +15,8 @@ import uuid
 from pathlib import Path
 
 from dotenv import load_dotenv
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from app.core.logging import get_logger
 from app.db.models.etims_invoice import EtimsInvoice, EtimsStatus
@@ -84,9 +86,9 @@ async def submit_to_etims(grn_id: str, etims_invoice_id: str) -> dict:
     1. Load the confirmed GRN and its EtimsInvoice from the DB.
     2. Build the eTIMS payload via etims_mapper.build_etims_payload().
        The mapper generates the sequential invoice_number for this store.
-    3. Copy grn.invoice_no → inv.cust_invoice_no (the customer's own reference).
+    3. Copy grn.invoice_no -> inv.cust_invoice_no (the customer's own reference).
     4. Convert to ReceiptHeader and submit to KRA (or render dev PDF).
-    5. Persist EtimsInvoice.status → submitted / rejected.
+    5. Persist EtimsInvoice.status -> submitted / rejected.
     """
     grn_uuid = uuid.UUID(grn_id)
     inv_uuid = uuid.UUID(etims_invoice_id)
@@ -102,7 +104,7 @@ async def submit_to_etims(grn_id: str, etims_invoice_id: str) -> dict:
             logger.error("submit_to_etims: EtimsInvoice %s not found", etims_invoice_id)
             return {"error": f"EtimsInvoice {etims_invoice_id} not found"}
 
-        # ── 1. Build payload ──────────────────────────────────────────────────
+        # -- 1. Build payload --------------------------------------------------
         try:
             invoice_header, items_list, meta = await build_etims_payload(
                 confirmed_data = grn.confirmed_data,
@@ -119,16 +121,73 @@ async def submit_to_etims(grn_id: str, etims_invoice_id: str) -> dict:
             inv.error_message = str(exc)
             await db.commit()
             return {"error": str(exc)}
-        
-        # ── 2. Lock both numbers before hitting KRA ───────────────────────────
+
+        # -- 2. Lock both numbers before hitting KRA ---------------------------
         # invoice_number  = system sequential eTIMS number (e.g. "006")
         # cust_invoice_no = customer's own reference from grn.invoice_no (e.g. "2063")
+        #
+        # Guard: lpo_number (receipt_voucher_no) has a unique constraint.
+        # If a *different* EtimsInvoice row already owns this value it belongs
+        # to a rejected duplicate GRN.  Delete that stale invoice AND its GRN
+        # so this submission can proceed cleanly.
+        new_lpo = meta["lpo_number"]
+        if new_lpo:
+            clash_result = await db.execute(
+                select(EtimsInvoice).where(
+                    EtimsInvoice.lpo_number == new_lpo,
+                    EtimsInvoice.id         != inv_uuid,
+                )
+            )
+            clashing_inv: EtimsInvoice | None = clash_result.scalar_one_or_none()
+            if clashing_inv:
+                clashing_grn: GRN | None = (
+                    await db.get(GRN, clashing_inv.grn_id)
+                    if clashing_inv.grn_id else None
+                )
+                logger.warning(
+                    "submit_to_etims: lpo_number '%s' already held by "
+                    "EtimsInvoice %s (GRN %s status=%s) — deleting stale "
+                    "duplicate before proceeding with GRN %s / EtimsInvoice %s",
+                    new_lpo,
+                    clashing_inv.id,
+                    clashing_grn.id     if clashing_grn else "N/A",
+                    clashing_grn.status if clashing_grn else "N/A",
+                    grn_id,
+                    etims_invoice_id,
+                )
+                await db.delete(clashing_inv)
+                if clashing_grn:
+                    await db.delete(clashing_grn)
+                await db.flush()   # release the unique constraint before the UPDATE
+
         inv.store_number    = meta["store_number"]
-        inv.invoice_no  = meta["invoice_number"] 
-        inv.grn_number = meta["grn_no"] # sequential, drives the counter
-        inv.lpo_number = meta["lpo_number"]
-        inv.cust_invoice_no = grn.invoice_no or None   
-        await db.commit()
+        inv.invoice_no      = meta["invoice_number"]
+        inv.grn_number      = meta["grn_no"]
+        inv.lpo_number      = new_lpo
+        inv.cust_invoice_no = grn.invoice_no or None
+
+        # Safety net: concurrent request inserted the same lpo_number between
+        # our SELECT and this commit — fall back to a clean rejection so the
+        # ASGI worker is never crashed by an unhandled IntegrityError.
+        try:
+            await db.commit()
+        except IntegrityError:
+            await db.rollback()
+            error_msg = (
+                f"Could not clear duplicate lpo_number '{new_lpo}' "
+                "(concurrent request). Please retry in a moment."
+            )
+            logger.error(
+                "submit_to_etims: IntegrityError after duplicate cleanup for "
+                "GRN %s / EtimsInvoice %s -- %s",
+                grn_id, etims_invoice_id, error_msg,
+            )
+            inv = await db.get(EtimsInvoice, inv_uuid)
+            if inv:
+                inv.status        = EtimsStatus.rejected
+                inv.error_message = error_msg
+                await db.commit()
+            return {"error": error_msg}
 
         logger.info(
             "submit_to_etims: locked invoice_number=%s cust_invoice_no=%s "
@@ -137,7 +196,7 @@ async def submit_to_etims(grn_id: str, etims_invoice_id: str) -> dict:
             meta["store_number"], etims_invoice_id,
         )
 
-        # ── 3. Convert to ReceiptHeader ───────────────────────────────────────
+        # -- 3. Convert to ReceiptHeader ----------------------------------------
         try:
             receipt_header = invoice_dict_to_receipt(invoice_header, items_list)
         except ValueError as exc:
@@ -147,11 +206,11 @@ async def submit_to_etims(grn_id: str, etims_invoice_id: str) -> dict:
             await db.commit()
             return {"error": str(exc)}
 
-        # ── 4. Development mode ───────────────────────────────────────────────
+        # -- 4. Development mode -----------------------------------------------
         if _is_dev():
             return await _dev_mode_pdf(grn_id, etims_invoice_id, receipt_header, inv, grn, db)
 
-        # ── 5. Production: submit to KRA with retry ───────────────────────────
+        # -- 5. Production: submit to KRA with retry ---------------------------
         cfg        = _get_etims_cfg()
         last_error = None
 
@@ -185,14 +244,14 @@ async def submit_to_etims(grn_id: str, etims_invoice_id: str) -> dict:
             await db.commit()
             return {"error": str(last_error)}
 
-        # ── 6. Persist result ─────────────────────────────────────────────────
+        # -- 6. Persist result -------------------------------------------------
         primary_result = results[0] if results else {}
 
         if primary_result.get("status") == "ok":
             inv.status       = EtimsStatus.submitted
             grn.status       = GRNStatus.invoiced
             inv.kra_response = json.dumps(primary_result, default=str)
-            
+
             predicted_no        = primary_result.get("kra_invoice_no")
             kracu_from_response = _extract_kracu(primary_result.get("response") or primary_result)
             kra_invoice_no      = predicted_no or kracu_from_response or None
@@ -206,7 +265,7 @@ async def submit_to_etims(grn_id: str, etims_invoice_id: str) -> dict:
             else:
                 logger.warning(
                     "submit_to_etims: KRA accepted receipt but kra_invoice_no "
-                    "could not be determined for EtimsInvoice %s — raw: %s",
+                    "could not be determined for EtimsInvoice %s -- raw: %s",
                     etims_invoice_id, str(primary_result)[:300],
                 )
         else:
@@ -216,7 +275,7 @@ async def submit_to_etims(grn_id: str, etims_invoice_id: str) -> dict:
 
         await db.commit()
         logger.info(
-            "submit_to_etims: GRN %s → eTIMS %s status=%s",
+            "submit_to_etims: GRN %s -> eTIMS %s status=%s",
             grn_id, etims_invoice_id, inv.status,
         )
         return primary_result
@@ -237,7 +296,7 @@ async def _dev_mode_pdf(
     dev_dir.mkdir(parents=True, exist_ok=True)
 
     logger.info(
-        "submit_to_etims [DEV]: APP_ENV=development — skipping KRA portal for GRN %s",
+        "submit_to_etims [DEV]: APP_ENV=development -- skipping KRA portal for GRN %s",
         grn_id,
     )
 
@@ -263,7 +322,7 @@ async def _dev_mode_pdf(
 
     await db.commit()
     logger.info(
-        "submit_to_etims [DEV]: GRN %s → eTIMS %s status=%s",
+        "submit_to_etims [DEV]: GRN %s -> eTIMS %s status=%s",
         grn_id, etims_invoice_id, inv.status,
     )
     return result
