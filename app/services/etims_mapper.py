@@ -58,7 +58,7 @@ STORE_NUMBER_MAP: dict[str, str] = {
 # The next automated invoice for each store will be seed + 1.
 # Keys must match the store_no values in STORE_NUMBER_MAP exactly.
 STORE_SEED_INVOICE: dict[str, int] = {
-    "6"   : 16,   # NAIVAS KUBWA / NAIVASHA KUBWA
+    "6"   : 18,   # NAIVAS KUBWA / NAIVASHA KUBWA
     "1"   : 6,    # NAIVAS NDOGO / NAIVASHA NDOGO
     "19"  : 5,    # NAIVAS SUPERCENTER
     "63"  : 13,   # NAKURU WESTSIDE
