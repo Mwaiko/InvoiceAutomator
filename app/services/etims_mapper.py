@@ -99,10 +99,10 @@ async def next_invoice_number(db: AsyncSession, store_no: str) -> int:
     from app.db.models.etims_invoice import EtimsInvoice
 
     result = await db.execute(
-        select(EtimsInvoice.lpo_number)
+        select(EtimsInvoice.invoice_no)
         .where(
             EtimsInvoice.store_number == store_no,
-            EtimsInvoice.lpo_number.is_not(None),
+            EtimsInvoice.invoice_no.is_not(None),
         )
     )
     rows = result.scalars().all()

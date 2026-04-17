@@ -81,9 +81,6 @@ def _strip_address(name: str) -> str:
     return _ADDRESS_RE.sub("", name).strip()
 
 
-# ═════════════════════════════════════════════════════════════════════════════
-#  Public entry point
-# ═════════════════════════════════════════════════════════════════════════════
 
 def extract_grn_from_image(image_path: str) -> dict:
     """
