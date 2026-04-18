@@ -252,7 +252,10 @@ async def list_grns(
     grns   = result.scalars().all()
     return [GRNResponse.from_orm_grn(g) for g in grns]
 
-
+@router.get("/etims-health")
+def check_etims_health() -> dict:
+    report = probe_etims(timeout=8)
+    return report.to_dict()
 @router.get("/{grn_id}", response_model=GRNResponse)
 async def get_grn(
     grn_id: uuid.UUID,
@@ -690,7 +693,3 @@ async def preview_etims_payload(
         items          = preview_items,
         warnings       = warnings,
     )
-@router.get("/etims-health")
-def check_etims_health() -> dict:
-    report = probe_etims(timeout=8)
-    return report.to_dict()
