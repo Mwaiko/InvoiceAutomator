@@ -267,7 +267,7 @@ def _build_form(header: ReceiptHeader) -> list[tuple[str, str]]:
 
         ("taxblAmtA",     f(header.taxbl_by_code("A"))),
         ("taxAmtA",       f(header.tax_by_code("A"))),
-        ("taxRtA",        f(header.tax_rate_for("A"))),
+        ("taxRtA",        "16"),
         ("taxblAmtB",     f(header.taxbl_by_code("B"))),
         ("taxAmtB",       f(header.tax_by_code("B"))),
         ("taxRtB",        "16"),
@@ -297,8 +297,8 @@ def _build_form(header: ReceiptHeader) -> list[tuple[str, str]]:
             ("dcAmt",     f(item.dc_amt)),
             ("splyAmt",   f(item.sply_amt)),
             ("taxblAmt",  f(item.taxbl_amt)),
-            ("taxTyRate", f(item.tax_rate)),
             ("taxTyCd",   item.tax_ty_cd),
+            ("taxTyRate", f(item.tax_rate)),
             ("taxAmt",    f(item.tax_amt)),
             ("totAmt",    f(item.tot_amt)),
         ]

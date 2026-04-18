@@ -216,11 +216,28 @@ async def submit_to_etims(grn_id: str, etims_invoice_id: str) -> dict:
 
         for attempt in range(1, MAX_RETRIES + 1):
             try:
-                results    = await asyncio.to_thread(run_fill, cfg, receipt_header)
+                results = await asyncio.to_thread(run_fill, cfg, receipt_header)
                 logger.info("Submission To Etims RESPONSE : %s", results)
                 print("=*" * 50)
                 print("SUBMITTED TO ETIMS RESPONSE :", results)
                 print("=*" * 50)
+
+                # run_fill swallows exceptions and returns {"status": "error"}.
+                # Treat that the same as a KraError so the retry loop fires.
+                primary = results[0] if results else {}
+                if primary.get("status") != "ok":
+                    err_msg = primary.get("error", "unknown error from run_fill")
+                    last_error = KraError(err_msg)
+                    inv.retry_count = (inv.retry_count or 0) + 1
+                    logger.warning(
+                        "submit_to_etims: KRA attempt %d/%d returned error for GRN %s: %s",
+                        attempt, MAX_RETRIES, grn_id, err_msg,
+                    )
+                    if attempt < MAX_RETRIES:
+                        await db.commit()
+                        await asyncio.sleep(RETRY_DELAY_SECS * attempt)
+                    continue
+
                 last_error = None
                 break
             except KraError as exc:

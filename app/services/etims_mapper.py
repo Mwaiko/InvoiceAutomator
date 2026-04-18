@@ -255,12 +255,14 @@ async def build_etims_payload(
         if hasattr(raw, "model_dump"):
             raw = raw.model_dump()
         items.append({
-            "itemCd" : "",
-            "itemNm" : raw.get("description", ""),
-            "uom"    : raw.get("uom", "KG"),
-            "qty"    : float(raw.get("qty_received", 1)),
-            "prc"    : float(raw.get("unit_price", 0)),
-            "dcRt"   : 0.0,
+            "itemCd"      : raw.get("item_code", ""),
+            "item_cls_cd" : raw.get("item_cls_cd", "5030150300"),
+            "itemNm"      : raw.get("description", ""),
+            "uom"         : raw.get("uom", "KG"),
+            "qty"         : float(raw.get("qty_received", 1)),
+            "prc"         : float(raw.get("unit_price", 0)),
+            "dcRt"        : 0.0,
+            "tax_ty_cd"   : raw.get("tax_ty_cd", "D"),
         })
 
     # ── Meta: stamp onto EtimsInvoice row ─────────────────────────────────────
