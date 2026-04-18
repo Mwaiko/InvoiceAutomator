@@ -42,7 +42,7 @@ from app.schemas.grn import (
     EtimsPayloadPreviewResponse,
 )
 from app.services.etims_mapper import build_etims_payload
-
+from app.services.etims_health import probe_etims
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/grns", tags=["grns"])
@@ -690,4 +690,7 @@ async def preview_etims_payload(
         items          = preview_items,
         warnings       = warnings,
     )
- 
+@router.get("/etims-health")
+def check_etims_health() -> dict:
+    report = probe_etims(timeout=8)
+    return report.to_dict()
