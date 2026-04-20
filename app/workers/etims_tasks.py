@@ -225,6 +225,20 @@ async def submit_to_etims(grn_id: str, etims_invoice_id: str) -> dict:
                 # run_fill swallows exceptions and returns {"status": "error"}.
                 # Treat that the same as a KraError so the retry loop fires.
                 primary = results[0] if results else {}
+                if primary.get("status") == "timeout":
+                    # KRA read-timeout: the invoice was sent and is very likely
+                    # already registered on KRA's side.  Do NOT retry — retrying
+                    # would submit a duplicate.  Fall through to the persist
+                    # block below which treats "timeout" the same as "ok".
+                    logger.warning(
+                        "submit_to_etims: KRA read-timeout for GRN %s "
+                        "(EtimsInvoice %s) — marking as submitted without "
+                        "retry to prevent duplicate invoice.",
+                        grn_id, etims_invoice_id,
+                    )
+                    last_error = None
+                    break
+
                 if primary.get("status") != "ok":
                     err_msg = primary.get("error", "unknown error from run_fill")
                     last_error = KraError(err_msg)
@@ -264,7 +278,7 @@ async def submit_to_etims(grn_id: str, etims_invoice_id: str) -> dict:
         # -- 6. Persist result -------------------------------------------------
         primary_result = results[0] if results else {}
 
-        if primary_result.get("status") == "ok":
+        if primary_result.get("status") in ("ok", "timeout"):
             inv.status       = EtimsStatus.submitted
             grn.status       = GRNStatus.invoiced
             inv.kra_response = json.dumps(primary_result, default=str)

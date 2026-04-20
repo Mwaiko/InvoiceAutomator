@@ -169,6 +169,11 @@ def _make_session() -> requests.Session:
     sess = requests.Session()
     retry = Retry(
         total=MAX_RETRIES,
+        read=0,               # ← NEVER retry on ReadTimeout.  A POST to
+                              #   insertTrnsSalesReceipt may already have been
+                              #   processed by KRA; retrying causes duplicate
+                              #   invoices.  The application layer in
+                              #   etims_tasks.py handles this explicitly.
         backoff_factor=BACKOFF_FACTOR,
         status_forcelist=[429, 500, 502, 503, 504],
         allowed_methods=["POST", "GET"],
@@ -582,6 +587,27 @@ def run_fill(
 
         results = [result]
 
+    except requests.exceptions.ReadTimeout:
+        # KRA received the POST but did not respond within TIMEOUT_S seconds.
+        # The invoice is very likely already registered on KRA's side.
+        # Return a distinct status so the caller can mark the invoice as
+        # submitted WITHOUT retrying (which would create a duplicate).
+        log.warning(
+            "  ⚠️  ReadTimeout on insertTrnsSalesReceipt — KRA did not respond "
+            "in %ds but the invoice was most likely accepted.  "
+            "NOT retrying to avoid duplicate submission.",
+            TIMEOUT_S,
+        )
+        results = [{
+            "items":  [i.item_nm for i in header.items],
+            "status": "timeout",
+            "error":  (
+                f"ReadTimeout: KRA did not respond within {TIMEOUT_S}s. "
+                "The invoice was likely accepted — verify on the KRA portal "
+                "before attempting to resubmit."
+            ),
+            "kra_invoice_no": str(predicted_no) if predicted_no is not None else None,
+        }]
     except KraError as exc:
         log.error("  ❌ Receipt submission failed: %s", exc)
         results = [{"items": [i.item_nm for i in header.items], "status": "error", "error": str(exc)}]
