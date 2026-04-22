@@ -29,9 +29,6 @@ env_path = Path(__file__).resolve().parent.parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
 logger = get_logger(__name__)
 
-MAX_RETRIES      = 3
-RETRY_DELAY_SECS = 60
-
 DEV_RECEIPT_DIR = os.environ.get("DEV_RECEIPT_DIR", "/tmp/etims_dev")
 
 
@@ -89,6 +86,10 @@ async def submit_to_etims(grn_id: str, etims_invoice_id: str) -> dict:
     3. Copy grn.invoice_no -> inv.cust_invoice_no (the customer's own reference).
     4. Convert to ReceiptHeader and submit to KRA (or render dev PDF).
     5. Persist EtimsInvoice.status -> submitted / rejected.
+
+    No automatic retries are performed.  Any failure (timeout, KRA unreachable,
+    error response) marks both GRN and EtimsInvoice as rejected immediately.
+    The user must explicitly resubmit.
     """
     grn_uuid = uuid.UUID(grn_id)
     inv_uuid = uuid.UUID(etims_invoice_id)
@@ -210,99 +211,92 @@ async def submit_to_etims(grn_id: str, etims_invoice_id: str) -> dict:
         if _is_dev():
             return await _dev_mode_pdf(grn_id, etims_invoice_id, receipt_header, inv, grn, db)
 
-        # -- 5. Production: submit to KRA with retry ---------------------------
-        cfg        = _get_etims_cfg()
-        last_error = None
+        # -- 5. Production: single attempt — no automatic retries ---------------
+        # Any failure (timeout, KRA unreachable, error response) immediately
+        # rejects the GRN and EtimsInvoice.  The user must explicitly resubmit.
+        cfg     = _get_etims_cfg()
+        results = None
 
-        for attempt in range(1, MAX_RETRIES + 1):
-            try:
-                results = await asyncio.to_thread(run_fill, cfg, receipt_header)
-                logger.info("Submission To Etims RESPONSE : %s", results)
-                print("=*" * 50)
-                print("SUBMITTED TO ETIMS RESPONSE :", results)
-                print("=*" * 50)
-
-                # run_fill swallows exceptions and returns {"status": "error"}.
-                # Treat that the same as a KraError so the retry loop fires.
-                primary = results[0] if results else {}
-                if primary.get("status") == "timeout":
-                    # KRA read-timeout: the invoice was sent and is very likely
-                    # already registered on KRA's side.  Do NOT retry — retrying
-                    # would submit a duplicate.  Fall through to the persist
-                    # block below which treats "timeout" the same as "ok".
-                    logger.warning(
-                        "submit_to_etims: KRA read-timeout for GRN %s "
-                        "(EtimsInvoice %s) — marking as submitted without "
-                        "retry to prevent duplicate invoice.",
-                        grn_id, etims_invoice_id,
-                    )
-                    last_error = None
-                    break
-
-                if primary.get("status") != "ok":
-                    err_msg = primary.get("error", "unknown error from run_fill")
-                    last_error = KraError(err_msg)
-                    inv.retry_count = (inv.retry_count or 0) + 1
-                    logger.warning(
-                        "submit_to_etims: KRA attempt %d/%d returned error for GRN %s: %s",
-                        attempt, MAX_RETRIES, grn_id, err_msg,
-                    )
-                    if attempt < MAX_RETRIES:
-                        await db.commit()
-                        await asyncio.sleep(RETRY_DELAY_SECS * attempt)
-                    continue
-
-                last_error = None
-                break
-            except KraError as exc:
-                last_error      = exc
-                inv.retry_count = (inv.retry_count or 0) + 1
-                logger.warning(
-                    "submit_to_etims: KRA attempt %d/%d failed for GRN %s: %s",
-                    attempt, MAX_RETRIES, grn_id, exc,
-                )
-                if attempt < MAX_RETRIES:
-                    await db.commit()
-                    await asyncio.sleep(RETRY_DELAY_SECS * attempt)
-
-        if last_error is not None:
+        try:
+            results = await asyncio.to_thread(run_fill, cfg, receipt_header)
+            logger.info("Submission To Etims RESPONSE : %s", results)
+            print("=*" * 50)
+            print("SUBMITTED TO ETIMS RESPONSE :", results)
+            print("=*" * 50)
+        except KraError as exc:
+            error_msg = f"KRA portal error: {exc}"
             logger.error(
-                "submit_to_etims: all %d KRA attempts exhausted for GRN %s: %s",
-                MAX_RETRIES, grn_id, last_error,
+                "submit_to_etims: KRA call raised KraError for GRN %s: %s",
+                grn_id, exc,
             )
             inv.status        = EtimsStatus.rejected
-            inv.error_message = str(last_error)
+            inv.error_message = error_msg
             await db.commit()
-            return {"error": str(last_error)}
-
-        # -- 6. Persist result -------------------------------------------------
-        primary_result = results[0] if results else {}
-
-        if primary_result.get("status") in ("ok", "timeout"):
-            inv.status       = EtimsStatus.submitted
-            grn.status       = GRNStatus.invoiced
-            inv.kra_response = json.dumps(primary_result, default=str)
-
-            predicted_no        = primary_result.get("kra_invoice_no")
-            kracu_from_response = _extract_kracu(primary_result.get("response") or primary_result)
-            kra_invoice_no      = predicted_no or kracu_from_response or None
-
-            if kra_invoice_no:
-                inv.kra_invoice_no = kra_invoice_no
-                logger.info(
-                    "submit_to_etims: kra_invoice_no=%s saved for EtimsInvoice %s",
-                    kra_invoice_no, etims_invoice_id,
-                )
-            else:
-                logger.warning(
-                    "submit_to_etims: KRA accepted receipt but kra_invoice_no "
-                    "could not be determined for EtimsInvoice %s -- raw: %s",
-                    etims_invoice_id, str(primary_result)[:300],
-                )
-        else:
+            return {"error": error_msg}
+        except Exception as exc:
+            error_msg = f"Unexpected error contacting KRA: {exc}"
+            logger.error(
+                "submit_to_etims: unexpected exception for GRN %s: %s",
+                grn_id, exc,
+            )
             inv.status        = EtimsStatus.rejected
-            inv.error_message = primary_result.get("error", "unknown error")
-            inv.retry_count   = (inv.retry_count or 0) + 1
+            inv.error_message = error_msg
+            await db.commit()
+            return {"error": error_msg}
+
+        primary_result = results[0] if results else {}
+        kra_status     = primary_result.get("status")
+
+        # Timeout and any non-ok status are all treated as failures.
+        # The user must resubmit — no automatic retry is attempted.
+        if kra_status == "timeout":
+            error_msg = (
+                "KRA portal did not respond in time (timeout). "
+                "Please check the KRA eTIMS portal and resubmit if the invoice was not registered."
+            )
+            logger.error(
+                "submit_to_etims: KRA timeout for GRN %s (EtimsInvoice %s) — marking rejected.",
+                grn_id, etims_invoice_id,
+            )
+            inv.status        = EtimsStatus.rejected
+            inv.error_message = error_msg
+            inv.kra_response  = json.dumps(primary_result, default=str)
+            await db.commit()
+            return {"error": error_msg}
+
+        if kra_status != "ok":
+            error_msg = primary_result.get("error") or f"KRA returned status '{kra_status}'"
+            logger.error(
+                "submit_to_etims: KRA rejected submission for GRN %s: %s",
+                grn_id, error_msg,
+            )
+            inv.status        = EtimsStatus.rejected
+            inv.error_message = error_msg
+            inv.kra_response  = json.dumps(primary_result, default=str)
+            await db.commit()
+            return {"error": error_msg}
+
+        # -- 6. Persist successful result --------------------------------------
+        inv.status       = EtimsStatus.submitted
+        grn.status       = GRNStatus.invoiced
+        inv.kra_response = json.dumps(primary_result, default=str)
+
+        predicted_no        = primary_result.get("kra_invoice_no")
+        kracu_from_response = _extract_kracu(primary_result.get("response") or primary_result)
+        kra_invoice_no      = predicted_no or kracu_from_response or None
+
+        if kra_invoice_no:
+            inv.kra_invoice_no = kra_invoice_no
+            logger.info(
+                "submit_to_etims: kra_invoice_no=%s saved for EtimsInvoice %s",
+                kra_invoice_no, etims_invoice_id,
+            )
+        else:
+            logger.warning(
+                "submit_to_etims: KRA accepted receipt but kra_invoice_no "
+                "could not be determined for EtimsInvoice %s -- raw: %s",
+                etims_invoice_id, str(primary_result)[:300],
+            )
 
         await db.commit()
         logger.info(
