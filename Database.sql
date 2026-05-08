@@ -1,154 +1,116 @@
--- ============================================================
---  Complete Database Schema
--- ============================================================
-
--- 1. Businesses
-CREATE TABLE businesses (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(255) NOT NULL,
-    kra_pin VARCHAR(50),
-    email VARCHAR(255),
-    phone VARCHAR(50),
-    credit_limit DECIMAL(15,2) DEFAULT 0,
-    payment_terms_days INTEGER DEFAULT 0,
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- 2. Branches
-CREATE TABLE branches (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    business_id UUID NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
-    branch_name VARCHAR(255) NOT NULL,
-    store_number VARCHAR(50),
-    contact_person VARCHAR(255),
-    phone VARCHAR(50),
-    email VARCHAR(255),
-    address TEXT,
-    county VARCHAR(100),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- 3. Products
-CREATE TABLE products (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    internal_code VARCHAR(100),
-    etims_item_code VARCHAR(100),
-    description VARCHAR(255) NOT NULL,
-    uom VARCHAR(50) NOT NULL,
-    default_unit_price DECIMAL(15,2) DEFAULT 0,
-    tax_type VARCHAR(20) CHECK (tax_type IN ('VAT', 'NONVAT', 'ZERO')) DEFAULT 'NONVAT',
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- 4. Orders
-CREATE TABLE orders (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    branch_id UUID NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
-    order_number VARCHAR(100) UNIQUE NOT NULL,
-    lpo_number VARCHAR(100),
-    order_date TIMESTAMP NOT NULL,
-    status VARCHAR(20) CHECK (status IN ('draft', 'confirmed', 'delivered', 'closed')) DEFAULT 'draft',
-    total_amount DECIMAL(15,2) DEFAULT 0,
-    created_by UUID,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE order_items (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
-    product_id UUID NOT NULL REFERENCES products(id),
-    quantity_ordered DECIMAL(15,2) NOT NULL,
-    unit_price DECIMAL(15,2) NOT NULL,
-    subtotal DECIMAL(15,2) NOT NULL
-);
-
--- 5. GRNs (Customer Generated)
-CREATE TABLE grns (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
-    grn_number VARCHAR(100) UNIQUE NOT NULL,
-    lpo_number VARCHAR(100),
-    delivery_note_number VARCHAR(100),
-    vendor_id VARCHAR(100),
-    receipt_date DATE NOT NULL,
-    store_name VARCHAR(255),
-    store_location VARCHAR(255),
-    subtotal DECIMAL(15,2) NOT NULL,
-    vat_amount DECIMAL(15,2) DEFAULT 0,
-    total_amount DECIMAL(15,2) NOT NULL,
-    confirmed_by VARCHAR(255),
-    is_locked BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE grn_items (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    grn_id UUID NOT NULL REFERENCES grns(id) ON DELETE CASCADE,
-    product_id UUID NOT NULL REFERENCES products(id),
-    quantity_received DECIMAL(15,2) NOT NULL,
-    unit_price DECIMAL(15,2) NOT NULL,
-    net_amount DECIMAL(15,2) NOT NULL
-);
-
--- 6. eTIMS Invoices (Generated from GRN)
-CREATE TABLE etims_invoices (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    grn_id UUID NOT NULL REFERENCES grns(id) ON DELETE CASCADE,
-    invoice_number VARCHAR(150),
-    scu_id VARCHAR(100),
-    cu_invoice_number VARCHAR(150),
-    invoice_date TIMESTAMP NOT NULL,
-    invoice_type VARCHAR(20) CHECK (invoice_type IN ('NONVAT', 'VAT', 'ZERO')) DEFAULT 'NONVAT',
-    taxable_amount DECIMAL(15,2) NOT NULL,
-    tax_amount DECIMAL(15,2) DEFAULT 0,
-    total_amount DECIMAL(15,2) NOT NULL,
-    receipt_signature VARCHAR(255),
-    internal_data VARCHAR(255),
-    etims_status VARCHAR(20) CHECK (etims_status IN ('pending', 'submitted', 'approved', 'rejected')) DEFAULT 'pending',
-    storage_path TEXT,
-    etims_payload JSONB,
-    etims_response JSONB,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE etims_invoice_items (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    etims_invoice_id UUID NOT NULL REFERENCES etims_invoices(id) ON DELETE CASCADE,
-    item_code VARCHAR(100),
-    description VARCHAR(255),
-    quantity DECIMAL(15,2) NOT NULL,
-    unit_price DECIMAL(15,2) NOT NULL,
-    tax_rate DECIMAL(5,2) DEFAULT 0,
-    tax_amount DECIMAL(15,2) DEFAULT 0,
-    total_incl_tax DECIMAL(15,2) NOT NULL
-);
-
--- 7. Payments
-CREATE TABLE payments (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    etims_invoice_id UUID NOT NULL REFERENCES etims_invoices(id) ON DELETE CASCADE,
-    amount_paid DECIMAL(15,2) NOT NULL,
-    payment_date DATE NOT NULL,
-    payment_method VARCHAR(20) CHECK (payment_method IN ('bank', 'mpesa', 'cash')),
-    reference_number VARCHAR(150),
-    notes TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- 8. Users
-CREATE TABLE users (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(255) NOT NULL,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    role VARCHAR(20) CHECK (role IN ('admin', 'sales', 'accountant')) NOT NULL,
-    password VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Indexes
-CREATE INDEX idx_orders_branch    ON orders(branch_id);
-CREATE INDEX idx_grns_order       ON grns(order_id);
-CREATE INDEX idx_etims_grn        ON etims_invoices(grn_id);
-CREATE INDEX idx_payments_invoice ON payments(etims_invoice_id);
+WITH cat_map AS (SELECT id, name FROM expense_categories)
+INSERT INTO expenses (expense_date, description, amount, category_id, status)
+VALUES
+    ('2026-03-15', 'Stanley - Helper', 300.0, (SELECT id FROM cat_map WHERE name = 'Labor'), 'paid'),
+    ('2026-03-15', 'Kifagio - Elizabeth', 150.0, (SELECT id FROM cat_map WHERE name = 'Packaging'), 'paid'),
+    ('2026-03-16', 'Airtime - Order Items', 20.0, (SELECT id FROM cat_map WHERE name = 'Airtime'), 'paid'),
+    ('2026-03-16', 'Paul Kamau - Cauliflower', 700.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-16', 'David - Boots', 335.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-16', 'George - Transport to Highway', 130.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-16', 'Dan - Transport', 650.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-17', 'John - Rider x2 UC179 L T/A HXQ', 500.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-17', 'Dan - Tuktuk UC179 L T/A JRY', 400.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-17', 'Lettuce - Mary M UC179 L T/A A01', 240.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-17', 'Casuals Mbogi UC179 L T/A KNN', 627.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-17', 'Ruth Mbogi UC179 L T/A DZ2', 630.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-17', 'Soko NVS UC179 L T/A YZN', 410.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-17', 'Dhaniq Dan', 100.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-17', 'Tea & Tissue, Mandazi UC179 L T/A TK1', 520.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-18', 'Airtime Mary', 20.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-19', 'Dan Order Items', 50.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-19', 'Managu Matumbo Lucy UC179 L T/A RS5T', 1440.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-19', 'J. Kirago UC179 L T/A Q224', 150.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-19', 'Tea / Solomon UC179 L T/A S295', 140.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-19', 'Snacks', 50.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-19', 'Bike to Shamba Dan', 100.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-19', 'Parcel - Gilgil George - Sacks', 100.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-20', 'Karuga - H/Way George', 130.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-20', 'Rider John H/Way UC K179 L T/A V176', 200.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-20', 'Matumbo 5 Kgs Lucy', 100.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-20', 'Airtime', 20.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-20', 'Transport Dan ACH179 L T/A UZ0M', 500.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-20', 'Paid Paul Kamau UCKB G17VJL', 1833.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-20', 'Airtel -', 83.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-20', 'Kunde Soko Equity UC K179 L T/A VXTY', 370.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-20', 'Solomon - Manure 300/ Pot Sols 600', 900.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-21', 'Tea 90 + 140 Elizabeth', 330.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-21', 'Simon Kamau (350 x 4 Casuals)', 1423.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-21', 'David Mbari', 300.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-21', 'George Njoroge - Tran to H/Way', 100.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-21', 'UC L17A DDV3 - Casuals to Mary Maina', 1530.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-21', 'UC L17A IBTC - Casual Karuga', 200.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-21', 'UC L17A L45L - Casual Karuga Lucy Karua', 1230.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-22', 'Airtime 33 + 30 + 10', 73.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-22', 'Daniel Mumba UC L17A 5LGO', 1800.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-22', 'John Kihawa H/Way Rider Order', 207.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-22', 'Beets, Lettuce & Managu Mary Maina', 2225.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-22', 'Managu Matumbo - Lucy Matu', 600.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-22', 'Daniel Mumba - Cleanshelf', 650.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-22', 'George - Broco 2 @ 70', 140.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-23', 'Airtime', 20.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-23', 'Broccoli & Beets', 420.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-23', 'Order Items - Francis Mbugua', 780.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-23', 'Simon Kamau Casuals Farrows', 1400.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-23', 'Daniel -', 643.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-23', 'UCN 17A 7 QW - Casual Karuga Margaret', 330.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-23', 'Beets NVS Mbugua 0723508312', 420.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-23', 'Broccoli', 780.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-23', 'Managu Amon 8 x 40 + 60', 300.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-23', 'George Njoroge - Kifagio & 1 Sack', 50.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-23', 'Airtime Stephane', 127.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-24', 'George H/Way', 100.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-24', 'Airtime', 30.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-24', 'Dan Mumba UC 017A 9 X 8 N - Cleanshelf', 507.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-24', 'John Kihawa UC 017A 9 V DZ - H/Way Dan', 207.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-24', 'UC 017A A L H M Airtime', 20.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-24', 'UC 017A A B L H Joseph Nyambura Nrb Trapt', 300.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-24', 'UC 017A A A 5 O John Kihawa - H/Way Nrb', 257.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-24', 'Airtime', 10.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-24', 'UC 017A B B 7 Y Bean Farrow Red 3 @ 300', 2130.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-24', 'Airtime', 10.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-25', 'Airtime', 10.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-25', 'UC 017A E 16 J Daniel Mumba', 170.0, (SELECT id FROM cat_map WHERE name = 'General'), 'paid'),
+    ('2026-03-02', 'Mbegi to H/Way (200x2)', 400, (SELECT id FROM cat_map WHERE name = 'Transport'), 'paid'),
+    ('2026-03-02', 'H/Way to NKS (170x2)', 340, (SELECT id FROM cat_map WHERE name = 'Transport'), 'paid'),
+    ('2026-03-02', 'H/Way to NKS Luggage', 250, (SELECT id FROM cat_map WHERE name = 'Transport'), 'paid'),
+    ('2026-03-02', 'Karunga to Mbegi', 400, (SELECT id FROM cat_map WHERE name = 'Transport'), 'paid'),
+    ('2026-03-02', 'Westside', 300, (SELECT id FROM cat_map WHERE name = 'Transport'), 'paid'),
+    ('2026-03-02', 'Superstore (if outsourcing)', 150, (SELECT id FROM cat_map WHERE name = 'Transport'), 'paid'),
+    ('2026-03-02', 'NKS to Gilgil (2@170)', 340, (SELECT id FROM cat_map WHERE name = 'Transport'), 'paid'),
+    ('2026-03-02', 'Gilgil to Mbegi (2@100)', 200, (SELECT id FROM cat_map WHERE name = 'Transport'), 'paid'),
+    ('2026-03-02', '2nd Rider', 200, (SELECT id FROM cat_map WHERE name = 'Transport'), 'paid'),
+    ('2026-03-02', 'If necessary', 2000, (SELECT id FROM cat_map WHERE name = 'Outsourcing'), 'paid'),
+    ('2026-03-02', '4 @ 35', 140, (SELECT id FROM cat_map WHERE name = 'Packaging'), 'paid'),
+    ('2026-03-02', '3 @ 20', 60, (SELECT id FROM cat_map WHERE name = 'Airtime'), 'paid'),
+    ('2026-03-02', 'Stanley (1500 x 2)', 3000, (SELECT id FROM cat_map WHERE name = 'Transport'), 'paid'),
+    ('2026-03-02', 'Karunga to Mbegi (400 x 2)', 800, (SELECT id FROM cat_map WHERE name = 'Transport'), 'paid'),
+    ('2026-03-02', '5 x 35', 175, (SELECT id FROM cat_map WHERE name = 'Packaging'), 'paid'),
+    ('2026-03-06', 'Karunga to Mbegi', 400, (SELECT id FROM cat_map WHERE name = 'Transport'), 'paid'),
+    ('2026-03-06', 'Mbegi to H/Way', 200, (SELECT id FROM cat_map WHERE name = 'Transport'), 'paid'),
+    ('2026-03-06', 'Gilgil to NKS', 250, (SELECT id FROM cat_map WHERE name = 'Transport'), 'paid'),
+    ('2026-03-06', 'NKS to Superstore', 150, (SELECT id FROM cat_map WHERE name = 'Transport'), 'paid'),
+    ('2026-03-06', 'NKS to Gilgil', 150, (SELECT id FROM cat_map WHERE name = 'Transport'), 'paid'),
+    ('2026-03-06', 'Gilgil to Mbegi', 100, (SELECT id FROM cat_map WHERE name = 'Transport'), 'paid'),
+    ('2026-03-06', '35 x 3', 105, (SELECT id FROM cat_map WHERE name = 'Packaging'), 'paid'),
+    ('2026-03-06', 'Airtime', 20, (SELECT id FROM cat_map WHERE name = 'Airtime'), 'paid'),
+    ('2026-03-02', 'Transport: Naivas Westside and Supercenter', 1400, (SELECT id FROM cat_map WHERE name = 'Transport'), 'paid'),
+    ('2026-03-02', 'Soko Items Purchase', 2000, (SELECT id FROM cat_map WHERE name = 'Supplies'), 'paid'),
+    ('2026-03-03', 'Transport: Cleanshelf Supermarket', 1100, (SELECT id FROM cat_map WHERE name = 'Transport'), 'paid'),
+    ('2026-03-04', 'Transport: Naivas Safari and Kubwa', 1500, (SELECT id FROM cat_map WHERE name = 'Transport'), 'paid'),
+    ('2026-03-06', 'Transport: Cleanshelf supermarket &  Naivas Kubwa', 1100, (SELECT id FROM cat_map WHERE name = 'Transport'), 'paid'),
+    ('2026-03-08', 'Transport: Naivas Safari & Kubwa', 1500, (SELECT id FROM cat_map WHERE name = 'Transport'), 'paid'),
+    ('2026-03-08', 'Soko Items Purchase', 1000, (SELECT id FROM cat_map WHERE name = 'Supplies'), 'paid'),
+    ('2026-03-02', 'Transport: Naivas Westside & Supp Store & Cleanshelf Supermarket', 1800, (SELECT id FROM cat_map WHERE name = 'Transport'), 'paid'),
+    ('2026-03-02', 'Other Weekly Costs', 2700, (SELECT id FROM cat_map WHERE name = 'Miscellaneous'), 'paid'),
+    ('2025-01-28', 'Casual Labor Payment', 56500, (SELECT id FROM cat_map WHERE name = 'Labor'), 'paid'),
+    ('2025-02-28', 'Casual Labor Payment', 32500, (SELECT id FROM cat_map WHERE name = 'Labor'), 'paid'),
+    ('2025-03-28', 'Casual Labor Payment', 55000, (SELECT id FROM cat_map WHERE name = 'Labor'), 'paid'),
+    ('2025-04-28', 'Casual Labor Payment', 49900, (SELECT id FROM cat_map WHERE name = 'Labor'), 'paid'),
+    ('2025-05-28', 'Casual Labor Payment', 56500, (SELECT id FROM cat_map WHERE name = 'Labor'), 'paid'),
+    ('2025-06-28', 'Casual Labor Payment', 61083, (SELECT id FROM cat_map WHERE name = 'Labor'), 'paid'),
+    ('2025-07-28', 'Casual Labor Payment', 77133, (SELECT id FROM cat_map WHERE name = 'Labor'), 'paid'),
+    ('2025-08-28', 'Casual Labor Payment', 65000, (SELECT id FROM cat_map WHERE name = 'Labor'), 'paid'),
+    ('2025-09-28', 'Casual Labor Payment', 59000, (SELECT id FROM cat_map WHERE name = 'Labor'), 'paid'),
+    ('2025-10-28', 'Casual Labor Payment', 67500, (SELECT id FROM cat_map WHERE name = 'Labor'), 'paid'),
+    ('2025-11-28', 'Casual Labor Payment', 77000, (SELECT id FROM cat_map WHERE name = 'Labor'), 'paid'),
+    ('2025-12-28', 'Casual Labor Payment', 77000, (SELECT id FROM cat_map WHERE name = 'Labor'), 'paid');

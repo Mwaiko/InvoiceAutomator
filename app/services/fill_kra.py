@@ -169,13 +169,9 @@ def _make_session() -> requests.Session:
     sess = requests.Session()
     retry = Retry(
         total=MAX_RETRIES,
-        read=0,               # ← NEVER retry on ReadTimeout.  A POST to
-                              #   insertTrnsSalesReceipt may already have been
-                              #   processed by KRA; retrying causes duplicate
-                              #   invoices.  The application layer in
-                              #   etims_tasks.py handles this explicitly.
+        read=0,
         backoff_factor=BACKOFF_FACTOR,
-        status_forcelist=[429, 500, 502, 503, 504],
+        status_forcelist=[429, 502, 503, 504],  # removed 500
         allowed_methods=["POST", "GET"],
         raise_on_status=False,
     )
@@ -323,7 +319,7 @@ def _submit_receipt(
 ) -> dict:
     url  = f"{cfg.base_url}{SALES_PATH}"
     form = _build_form(header)
-
+    log.debug("eTIMS form payload: %s", form) 
     hdrs = {
         "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
         "Accept":       "application/json, text/javascript, */*; q=0.01",
@@ -760,6 +756,7 @@ def invoice_dict_to_receipt(invoice: dict, items_list: list[dict]) -> ReceiptHea
             prc         = prc,
             dc_rt       = float(line.get("dcRt") or 0),
             tax_ty_cd   = line.get("tax_ty_cd",   "D"),
+            pkg = line.get("pkg") or "1",
         ))
 
     if not sale_items:

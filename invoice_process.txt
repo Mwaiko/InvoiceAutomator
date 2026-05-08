@@ -555,5 +555,408 @@ $(document).ready(function(){
 <!-- /.modal-dialog -->
 
 
+curl 'https://etims.kra.go.ke/app/ebm/trns/popup/trnsSalesTaxPayerItemClsList' \
+  -H 'Accept: text/html, */*; q=0.01' \
+  -H 'Accept-Language: en-GB,en-US;q=0.9,en;q=0.8' \
+  -H 'Connection: keep-alive' \
+  -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' \
+  -b 'JSESSIONID=94C44FACCBE39F64D12DDC82BCD18D3B; BIGipServer~k8sprd02~Shared~etims_portal_8080_etims_prod_etims_kra_go_ke=3004423178.36895.0000' \
+  -H 'Origin: https://etims.kra.go.ke' \
+  -H 'Referer: https://etims.kra.go.ke/app/ebm/trns/sales/indexTrnsSalesReceiptDetail' \
+  -H 'Sec-Fetch-Dest: empty' \
+  -H 'Sec-Fetch-Mode: cors' \
+  -H 'Sec-Fetch-Site: same-origin' \
+  -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36' \
+  -H 'X-Requested-With: XMLHttpRequest' \
+  -H 'sec-ch-ua: "Google Chrome";v="147", "Not.A/Brand";v="8", "Chromium";v="147"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "Linux"' \
+  --data-raw 'page=1&itemCd=&itemNm='
+
+  
+<script type="text/javascript">
+$(document).ready(function(){
+    // Attach event listener to contextmenu event
+    $(document).on("contextmenu", function(e){
+        // Prevent default behavior
+        e.preventDefault();
+    });
+});
+</script>
+<script type="text/javascript">
+
+	$(document).ready(function(){
+	});
+
+	$(function(){
+	});
+
+</script>
+<div class="col-md-12">
+	<table class="tbl_type2" cellspacing="0">
+	<caption>EBM Sales Taxpayer Classification Codes List</caption>
+	    <colgroup>
+	        <col>
+	    </colgroup>
+	    <thead>
+	    	<tr><th scope="col">class code</th></tr>
+	    </thead>
+	    <tbody>
+	    	
+	    	
+	        <tr>
+	            <td scope="row" class="text-left">
+		        	<input type="hidden" name="itemClsCd" value="5030150300">
+		        	<input type="hidden" name="itemClsIdx" value="0">
+		        	<input type="hidden" name="subViewOpenYn" value="N">
+	            	<span class="subViewSign  float-left" style="cursor: pointer;"> + </span>5030150300(Api apples)
+	            </td>
+	        </tr>
+	    	
+	        <tr>
+	            <td scope="row" class="text-left">
+		        	<input type="hidden" name="itemClsCd" value="5040150100">
+		        	<input type="hidden" name="itemClsIdx" value="1">
+		        	<input type="hidden" name="subViewOpenYn" value="N">
+	            	<span class="subViewSign  float-left" style="cursor: pointer;"> + </span>5040150100(Brittany artichokes)
+	            </td>
+	        </tr>
+	    	
+	        <tr>
+	            <td scope="row" class="text-left">
+		        	<input type="hidden" name="itemClsCd" value="5041150100">
+		        	<input type="hidden" name="itemClsIdx" value="2">
+		        	<input type="hidden" name="subViewOpenYn" value="N">
+	            	<span class="subViewSign  float-left" style="cursor: pointer;"> + </span>5041150100(Organic brittany artichokes)
+	            </td>
+	        </tr>
+	    	
+	        <tr>
+	            <td scope="row" class="text-left">
+		        	<input type="hidden" name="itemClsCd" value="8017190900">
+		        	<input type="hidden" name="itemClsIdx" value="3">
+		        	<input type="hidden" name="subViewOpenYn" value="N">
+	            	<span class="subViewSign  float-left" style="cursor: pointer;"> + </span>8017190900(Business and utility provider relations consultation and engagement)
+	            </td>
+	        </tr>
+	    	
+	        <tr>
+	            <td scope="row" class="text-left">
+		        	<input type="hidden" name="itemClsCd" value="8613210200">
+		        	<input type="hidden" name="itemClsIdx" value="4">
+		        	<input type="hidden" name="subViewOpenYn" value="N">
+	            	<span class="subViewSign  float-left" style="cursor: pointer;"> + </span>8613210200(Training planning and development consultancy service)
+	            </td>
+	        </tr>
+	    	
+	    	
+	    	
+	    </tbody>
+	</table>
+
+	<nav class="pagination-section" aria-label="pagination"><ul class="pagination pagination-sm justify-content-center"><li class="page-item active"><a class="page-link" href="javascript:trnsSalesTaxPayerItemClsList.setPage('1');">1</a></li><div class="sum">[ Total Data : 5 / Total page : 1]</div></ul></nav>
+</div>
+curl 'https://etims.kra.go.ke/app/ebm/trns/popup/trnsSalesTaxpayerItemList' \
+  -H 'Accept: text/html, */*; q=0.01' \
+  -H 'Accept-Language: en-GB,en-US;q=0.9,en;q=0.8' \
+  -H 'Connection: keep-alive' \
+  -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' \
+  -b 'JSESSIONID=94C44FACCBE39F64D12DDC82BCD18D3B; BIGipServer~k8sprd02~Shared~etims_portal_8080_etims_prod_etims_kra_go_ke=3004423178.36895.0000' \
+  -H 'Origin: https://etims.kra.go.ke' \
+  -H 'Referer: https://etims.kra.go.ke/app/ebm/trns/sales/indexTrnsSalesReceiptDetail' \
+  -H 'Sec-Fetch-Dest: empty' \
+  -H 'Sec-Fetch-Mode: cors' \
+  -H 'Sec-Fetch-Site: same-origin' \
+  -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36' \
+  -H 'X-Requested-With: XMLHttpRequest' \
+  -H 'sec-ch-ua: "Google Chrome";v="147", "Not.A/Brand";v="8", "Chromium";v="147"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "Linux"' \
+  --data-raw 'page=1&itemCd=&itemNm=&itemClsCd=5040150100'
 
 
+<script type="text/javascript">
+$(document).ready(function(){
+    // Attach event listener to contextmenu event
+    $(document).on("contextmenu", function(e){
+        // Prevent default behavior
+        e.preventDefault();
+    });
+});
+</script>
+<script type="text/javascript">
+
+	$(document).ready(function(){
+	});
+
+	$(function(){
+	});
+
+</script>
+<div class="col-md-12">
+	<table class="tbl_type2" cellspacing="0">
+	<caption>EBM Sales Taxpayer List</caption>
+	    <colgroup>
+	        <col style="width:110px">
+	        <col>
+	        <col style="width:100px">
+	        <col style="width:100px">
+	        <col style="width:100px">
+	    </colgroup>
+	    <thead>
+	    	<tr>
+	    		<th scope="col">Item code</th>
+	    		<th scope="col">Item Name</th>
+	    		<th scope="col">Tax type</th>
+	    		<th scope="col">Unit Code</th>
+	    		<th scope="col">Package code</th>
+	    	</tr>
+	    </thead>
+	    <tbody>
+	    	
+	    	
+	        <tr onclick="javascript:trnsSalesTaxPayerItemList.callBack('5040150100','KE1BEXBEX00001','Matoke','D','BE','BE','','100','0')";>
+	            <td scope="row">KE1BEXBEX00001</td>
+	            <td class="text-left">Matoke</td>
+	            <td>D</td>
+	            <td>BE</td>
+	            <td>BE</td>
+	        </tr>
+	    	
+	        <tr onclick="javascript:trnsSalesTaxPayerItemList.callBack('5040150100','KE1BEXBEX00002','Tree Tomato','D','BE','BE','','190','0')";>
+	            <td scope="row">KE1BEXBEX00002</td>
+	            <td class="text-left">Tree Tomato</td>
+	            <td>D</td>
+	            <td>BE</td>
+	            <td>BE</td>
+	        </tr>
+	    	
+	        <tr onclick="javascript:trnsSalesTaxPayerItemList.callBack('5040150100','KE1BEXKGX00001','Kales','D','KG','BE','','15','0')";>
+	            <td scope="row">KE1BEXKGX00001</td>
+	            <td class="text-left">Kales</td>
+	            <td>D</td>
+	            <td>KG</td>
+	            <td>BE</td>
+	        </tr>
+	    	
+	        <tr onclick="javascript:trnsSalesTaxPayerItemList.callBack('5040150100','KE1BEXKGX00002','Saghet','D','KG','BE','','20','0')";>
+	            <td scope="row">KE1BEXKGX00002</td>
+	            <td class="text-left">Saghet</td>
+	            <td>D</td>
+	            <td>KG</td>
+	            <td>BE</td>
+	        </tr>
+	    	
+	        <tr onclick="javascript:trnsSalesTaxPayerItemList.callBack('5040150100','KE1BEXKGX00003','Mint Herbs','D','KG','BE','','15','0')";>
+	            <td scope="row">KE1BEXKGX00003</td>
+	            <td class="text-left">Mint Herbs</td>
+	            <td>D</td>
+	            <td>KG</td>
+	            <td>BE</td>
+	        </tr>
+	    	
+	        <tr onclick="javascript:trnsSalesTaxPayerItemList.callBack('5040150100','KE1BEXKGX00004','Kunde','D','KG','BE','','15','0')";>
+	            <td scope="row">KE1BEXKGX00004</td>
+	            <td class="text-left">Kunde</td>
+	            <td>D</td>
+	            <td>KG</td>
+	            <td>BE</td>
+	        </tr>
+	    	
+	        <tr onclick="javascript:trnsSalesTaxPayerItemList.callBack('5040150100','KE1BEXKGX00005','Paw paw','D','KG','BE','','50','0')";>
+	            <td scope="row">KE1BEXKGX00005</td>
+	            <td class="text-left">Paw paw</td>
+	            <td>D</td>
+	            <td>KG</td>
+	            <td>BE</td>
+	        </tr>
+	    	
+	        <tr onclick="javascript:trnsSalesTaxPayerItemList.callBack('5040150100','KE2BEXBEX00001','Dania','D','BE','BE','','10','0')";>
+	            <td scope="row">KE2BEXBEX00001</td>
+	            <td class="text-left">Dania</td>
+	            <td>D</td>
+	            <td>BE</td>
+	            <td>BE</td>
+	        </tr>
+	    	
+	        <tr onclick="javascript:trnsSalesTaxPayerItemList.callBack('5040150100','KE2BEXBEX00002','Managu','D','BE','BE','','15','0')";>
+	            <td scope="row">KE2BEXBEX00002</td>
+	            <td class="text-left">Managu</td>
+	            <td>D</td>
+	            <td>BE</td>
+	            <td>BE</td>
+	        </tr>
+	    	
+	        <tr onclick="javascript:trnsSalesTaxPayerItemList.callBack('5040150100','KE2BEXBEX00003','Terere','D','BE','BE','','15','0')";>
+	            <td scope="row">KE2BEXBEX00003</td>
+	            <td class="text-left">Terere</td>
+	            <td>D</td>
+	            <td>BE</td>
+	            <td>BE</td>
+	        </tr>
+	    	
+	        <tr onclick="javascript:trnsSalesTaxPayerItemList.callBack('5040150100','KE2BEXBEX00004','Kahurura','D','BE','BE','','10','0')";>
+	            <td scope="row">KE2BEXBEX00004</td>
+	            <td class="text-left">Kahurura</td>
+	            <td>D</td>
+	            <td>BE</td>
+	            <td>BE</td>
+	        </tr>
+	    	
+	        <tr onclick="javascript:trnsSalesTaxPayerItemList.callBack('5040150100','KE2BEXGRM00001','Basil','D','GRM','BE','','2','0')";>
+	            <td scope="row">KE2BEXGRM00001</td>
+	            <td class="text-left">Basil</td>
+	            <td>D</td>
+	            <td>GRM</td>
+	            <td>BE</td>
+	        </tr>
+	    	
+	        <tr onclick="javascript:trnsSalesTaxPayerItemList.callBack('5040150100','KE2BEXKGX00001','Leeks','D','KG','BE','','80','0')";>
+	            <td scope="row">KE2BEXKGX00001</td>
+	            <td class="text-left">Leeks</td>
+	            <td>D</td>
+	            <td>KG</td>
+	            <td>BE</td>
+	        </tr>
+	    	
+	        <tr onclick="javascript:trnsSalesTaxPayerItemList.callBack('5040150100','KE2BEXKGX00002','Sukuma Wiki','D','KG','BE','','15','0')";>
+	            <td scope="row">KE2BEXKGX00002</td>
+	            <td class="text-left">Sukuma Wiki</td>
+	            <td>D</td>
+	            <td>KG</td>
+	            <td>BE</td>
+	        </tr>
+	    	
+	        <tr onclick="javascript:trnsSalesTaxPayerItemList.callBack('5040150100','KE2BEXKGX00003','Spinach','D','KG','BE','','15','0')";>
+	            <td scope="row">KE2BEXKGX00003</td>
+	            <td class="text-left">Spinach</td>
+	            <td>D</td>
+	            <td>KG</td>
+	            <td>BE</td>
+	        </tr>
+	    	
+	        <tr onclick="javascript:trnsSalesTaxPayerItemList.callBack('5040150100','KE2BEXKGX00004','Lettuce','D','KG','BE','','25','0')";>
+	            <td scope="row">KE2BEXKGX00004</td>
+	            <td class="text-left">Lettuce</td>
+	            <td>D</td>
+	            <td>KG</td>
+	            <td>BE</td>
+	        </tr>
+	    	
+	        <tr onclick="javascript:trnsSalesTaxPayerItemList.callBack('5040150100','KE2BEXKGX00005','Garlic Local','D','KG','BE','','350','0')";>
+	            <td scope="row">KE2BEXKGX00005</td>
+	            <td class="text-left">Garlic Local</td>
+	            <td>D</td>
+	            <td>KG</td>
+	            <td>BE</td>
+	        </tr>
+	    	
+	        <tr onclick="javascript:trnsSalesTaxPayerItemList.callBack('5040150100','KE2BEXKGX00006','Thorn Melon','D','KG','BE','','80','0')";>
+	            <td scope="row">KE2BEXKGX00006</td>
+	            <td class="text-left">Thorn Melon</td>
+	            <td>D</td>
+	            <td>KG</td>
+	            <td>BE</td>
+	        </tr>
+	    	
+	        <tr onclick="javascript:trnsSalesTaxPayerItemList.callBack('5040150100','KE2BEXKGX00007','Cauliflower','D','KG','BE','','130','0')";>
+	            <td scope="row">KE2BEXKGX00007</td>
+	            <td class="text-left">Cauliflower</td>
+	            <td>D</td>
+	            <td>KG</td>
+	            <td>BE</td>
+	        </tr>
+	    	
+	        <tr onclick="javascript:trnsSalesTaxPayerItemList.callBack('5040150100','KE2BEXU00001','Salad Onion','D','U','BE','','80','0')";>
+	            <td scope="row">KE2BEXU00001</td>
+	            <td class="text-left">Salad Onion</td>
+	            <td>D</td>
+	            <td>U</td>
+	            <td>BE</td>
+	        </tr>
+	    	
+	        <tr onclick="javascript:trnsSalesTaxPayerItemList.callBack('5040150100','KE2BGXKGX00003','Broccoli','D','KG','BG','','120','0')";>
+	            <td scope="row">KE2BGXKGX00003</td>
+	            <td class="text-left">Broccoli</td>
+	            <td>D</td>
+	            <td>KG</td>
+	            <td>BG</td>
+	        </tr>
+	    	
+	        <tr onclick="javascript:trnsSalesTaxPayerItemList.callBack('5040150100','KE2BGXKGX00004','Onions White','D','KG','BG','','120','0')";>
+	            <td scope="row">KE2BGXKGX00004</td>
+	            <td class="text-left">Onions White</td>
+	            <td>D</td>
+	            <td>KG</td>
+	            <td>BG</td>
+	        </tr>
+	    	
+	        <tr onclick="javascript:trnsSalesTaxPayerItemList.callBack('5040150100','KE2BGXKGX00005','Cabbage Red','D','KG','BG','','60','0')";>
+	            <td scope="row">KE2BGXKGX00005</td>
+	            <td class="text-left">Cabbage Red</td>
+	            <td>D</td>
+	            <td>KG</td>
+	            <td>BG</td>
+	        </tr>
+	    	
+	        <tr onclick="javascript:trnsSalesTaxPayerItemList.callBack('5040150100','KE2BGXKGX00006','Beetroots','D','KG','BG','','50','0')";>
+	            <td scope="row">KE2BGXKGX00006</td>
+	            <td class="text-left">Beetroots</td>
+	            <td>D</td>
+	            <td>KG</td>
+	            <td>BG</td>
+	        </tr>
+	    	
+	        <tr onclick="javascript:trnsSalesTaxPayerItemList.callBack('5040150100','KE2BGXKGX00007','Red Potatoes','D','KG','BG','','200','0')";>
+	            <td scope="row">KE2BGXKGX00007</td>
+	            <td class="text-left">Red Potatoes</td>
+	            <td>D</td>
+	            <td>KG</td>
+	            <td>BG</td>
+	        </tr>
+	    	
+	        <tr onclick="javascript:trnsSalesTaxPayerItemList.callBack('5040150100','KE2BGXU00001','Cabbage','D','U','BG','','50','0')";>
+	            <td scope="row">KE2BGXU00001</td>
+	            <td class="text-left">Cabbage</td>
+	            <td>D</td>
+	            <td>U</td>
+	            <td>BG</td>
+	        </tr>
+	    	
+	        <tr onclick="javascript:trnsSalesTaxPayerItemList.callBack('5040150100','KE2BZXBEX00001','Onions Red','D','BE','BZ','','60','0')";>
+	            <td scope="row">KE2BZXBEX00001</td>
+	            <td class="text-left">Onions Red</td>
+	            <td>D</td>
+	            <td>BE</td>
+	            <td>BZ</td>
+	        </tr>
+	    	
+	        <tr onclick="javascript:trnsSalesTaxPayerItemList.callBack('5040150100','KE2BZXKGX00001','Potatoes','D','KG','BZ','','50','0')";>
+	            <td scope="row">KE2BZXKGX00001</td>
+	            <td class="text-left">Potatoes</td>
+	            <td>D</td>
+	            <td>KG</td>
+	            <td>BZ</td>
+	        </tr>
+	    	
+	        <tr onclick="javascript:trnsSalesTaxPayerItemList.callBack('5040150100','KE2BZXKGX00002','Courgetts','D','KG','BZ','','100','0')";>
+	            <td scope="row">KE2BZXKGX00002</td>
+	            <td class="text-left">Courgetts</td>
+	            <td>D</td>
+	            <td>KG</td>
+	            <td>BZ</td>
+	        </tr>
+	    	
+	        <tr onclick="javascript:trnsSalesTaxPayerItemList.callBack('5040150100','KE2BZXU00001','Salad Onion 250g','D','U','BZ','','80','0')";>
+	            <td scope="row">KE2BZXU00001</td>
+	            <td class="text-left">Salad Onion 250g</td>
+	            <td>D</td>
+	            <td>U</td>
+	            <td>BZ</td>
+	        </tr>
+	    	
+	    	
+	    	
+	    </tbody>
+	</table>
+</div>

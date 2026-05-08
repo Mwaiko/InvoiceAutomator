@@ -31,6 +31,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
+from app.services.etims_item_map import resolve_item
 
 logger = get_logger(__name__)
 
@@ -159,6 +160,7 @@ async def build_etims_payload(
         ValueError if confirmed_data has no items
     """
     items_raw = confirmed_data.get("items", [])
+    logger.debug("Items raw data: %s", items_raw)
     if not items_raw:
         raise ValueError("No items found in confirmed GRN data")
 
@@ -254,15 +256,46 @@ async def build_etims_payload(
     for raw in items_raw:
         if hasattr(raw, "model_dump"):
             raw = raw.model_dump()
+
+        description: str = raw.get("description", "")
+
+        # Try to resolve eTIMS codes from the local catalogue first.
+        # The GRN may carry codes already (e.g. from a previous lookup or manual
+        # entry); we only use the catalogue values when the GRN field is blank.
+        catalogue_entry = resolve_item(description)
+
+        if catalogue_entry:
+            item_cd      = raw.get("item_code") or catalogue_entry["itemCd"]
+            item_cls_cd  = raw.get("item_cls_cd") or catalogue_entry["item_cls_cd"]
+            uom          = raw.get("uom") or catalogue_entry["uom"]
+            tax_ty_cd    = raw.get("tax_ty_cd") or catalogue_entry["tax_ty_cd"]
+            if not raw.get("item_code") and catalogue_entry["itemCd"]:
+                logger.info(
+                    "etims_mapper: resolved '%s' → itemCd=%s cls=%s via catalogue",
+                    description, catalogue_entry["itemCd"], catalogue_entry["item_cls_cd"],
+                )
+        else:
+            # Fall back to whatever the GRN provides; use safe defaults.
+            item_cd     = raw.get("item_code") or ""
+            item_cls_cd = raw.get("item_cls_cd") or "5030150300"
+            uom         = raw.get("uom") or "KG"
+            tax_ty_cd   = raw.get("tax_ty_cd") or "D"
+            if description:
+                logger.warning(
+                    "etims_mapper: '%s' not found in item catalogue — "
+                    "using GRN-provided codes (itemCd=%r, cls=%r)",
+                    description, item_cd, item_cls_cd,
+                )
+
         items.append({
-            "itemCd"      : raw.get("item_code", ""),
-            "item_cls_cd" : raw.get("item_cls_cd", "5030150300"),
-            "itemNm"      : raw.get("description", ""),
-            "uom"         : raw.get("uom", "KG"),
+            "itemCd"      : item_cd,
+            "item_cls_cd" : item_cls_cd,
+            "itemNm"      : description,
+            "uom"         : uom,
             "qty"         : float(raw.get("qty_received", 1)),
             "prc"         : float(raw.get("unit_price", 0)),
             "dcRt"        : 0.0,
-            "tax_ty_cd"   : raw.get("tax_ty_cd", "D"),
+            "tax_ty_cd"   : tax_ty_cd,
         })
 
     # ── Meta: stamp onto EtimsInvoice row ─────────────────────────────────────

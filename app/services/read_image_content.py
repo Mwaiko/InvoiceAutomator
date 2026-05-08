@@ -106,7 +106,7 @@ def _call_nvidia_ocr(image_path: str) -> list[dict]:
     POST the image to the NVIDIA Nemotron-OCR endpoint.
     Returns the raw list of text-detection dicts.
     """
-    api_key = os.environ.get("nvapi") or os.environ.get("NVAPI_KEY")
+    api_key = "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"
     if not api_key:
         raise EnvironmentError(
             "NVIDIA OCR API key not found. "
@@ -216,48 +216,77 @@ def _find(text: str, pattern: str) -> str | None:
 def _parse(tokens: list[str], full_text: str, rows: list[list[str]]) -> dict:
     grn: dict = {}
 
-    # ── 1. Header / non-fiscal fields ─────────────────────────────────────────
-    # GRN No  — "G.R.N. No. 57662" or "GRN No 57662"
+    # ── 1. Header fields ──────────────────────────────────────────────────────
+    # receipt_voucher_no
+    # Cleanshelf: "G.R.N. No. 57662" / "GRN No 57662"
+    # Naivas:     "Receipt Voucher No: IPR-000015453"
     grn["receipt_voucher_no"] = (
-        _find(full_text, r"G\.?R\.?N\.?\s*No\.?\s*[:\s]*(\d+)")
+        _find(full_text, r"Receipt\s*Voucher\s*No[:\s]+([A-Z0-9\-]+)")
+        or _find(full_text, r"G\.?R\.?N\.?\s*No\.?\s*[:\s]*(\d+)")
         or _find(full_text, r"GRN\s*No\.?\s*[:\s]*(\d+)")
     )
 
-    # LPO No  — "LPO No. 72233" or "LPO No 72233"
+    # lpo_number
+    # Cleanshelf: "LPO No. 72233"
+    # Naivas:     "LPO number: P042017519"  (alphanumeric, keyword is "number")
     grn["lpo_number"] = (
-        _find(full_text, r"LPO\s*No\.?\s*[:\s]*(\d+)")
+        _find(full_text, r"LPO\s*number[:\s]+([\w]+)")
+        or _find(full_text, r"LPO\s*No\.?\s*[:\s]*(\d+)")
         or _find(full_text, r"LPO\s*[:\s]+([A-Z0-9]+)")
     )
 
-    # Invoice No  — "Iev. No. 2166" / "Inv. No. 2166" / "Invoice No 2166"
+    # delivery_invoice_no
+    # Cleanshelf: "Inv. No. 2166"
+    # Naivas:     "Delivery note/Invoice No: #Q/2093"  — value may start with #
     grn["delivery_invoice_no"] = (
-        _find(full_text, r"I[ne][vV]\.?\s*No\.?\s*[:\s]*(\d+)")
+        _find(full_text, r"Delivery\s*note/Invoice\s*No[:\s]+([\w#/\-]+)")
+        or _find(full_text, r"I[ne][vV]\.?\s*No\.?\s*[:\s]*(\d+)")
         or _find(full_text, r"Invoice\s*No\.?\s*[:\s]*([A-Z0-9]+)")
-        or _find(full_text, r"Delivery\s*(?:note/)?Invoice\s*No[:\s]+([A-Z0-9]+)")
     )
 
-    # GRN Date — "GRN Date 27 Mar 2026" or "Receipt Date 01 Jan 2025"
+    # vendor_id — "Vendor ID: Q/498"
+    grn["vendor_id"] = _find(full_text, r"Vendor\s*ID[:\s]+([A-Z0-9/]+)")
+
+    # receipt_date
+    # Cleanshelf: "GRN Date 27 Mar 2026"
+    # Naivas:     "Receipt Date: 5 Apr 2026"
     grn["receipt_date"] = (
-        _find(full_text, r"GRN\s*Date\s+(\d{1,2}\s+\w+\s+\d{4})")
-        or _find(full_text, r"Receipt\s*Date\s+(\d{1,2}\s+\w+\s+\d{4})")
-        or _find(full_text, r"Date\s+(\d{1,2}\s+\w+\s+\d{4})")
+        _find(full_text, r"Receipt\s*Date[:\s]+(\d{1,2}\s+\w+\s+\d{4})")
+        or _find(full_text, r"GRN\s*Date\s+(\d{1,2}\s+\w+\s+\d{4})")
+        or _find(full_text, r"Date[:\s]+(\d{1,2}\s+\w+\s+\d{4})")
     )
 
-    # ── 2. Store / company ─────────────────────────────────────────────────────
+    # ── 2. Store / company ────────────────────────────────────────────────────
+    # company_name: first word-bounded match of known chain names
+    # Use a tight lookahead so we don't swallow the rest of the page.
+    # Stops at whitespace followed by any known next-field keyword.
+    _STOP = r"(?=\s+(?:Store|Address|City|Email|Location|Supplier|LPO|No\b|Company|Vendor|Receipt))"
     company_match = re.search(
-        r"(NAIVAS\b[^,\n]*|CLEANSHELF\b[^,\n]*|QUICKMART\b[^,\n]*)",
+        r"Company\s+Name\s+((?:NAIVAS|CLEANSHELF|QUICKMART)\s+\w+(?:\s+\w+){0,4})" + _STOP,
         full_text, re.IGNORECASE,
     )
-    # Strip any trailing P.O. BOX / address that OCR picked up on the same line
+    if not company_match:
+        # Fallback: grab first occurrence of the chain brand
+        company_match = re.search(
+            r"((?:NAIVAS|CLEANSHELF|QUICKMART)\s+(?:LTD|LIMITED|SUPERMARKETS?)\b[^,\n]{0,30})",
+            full_text, re.IGNORECASE,
+        )
     company_name = (
         _strip_address(company_match.group(1).strip())
         if company_match else None
     )
 
-    store_name = _find(full_text, r"Store\s*Name\s+(.+?)(?:\s{2,}|Store|$)")
-    location   = _find(
+    # store_name: first non-whitespace word(s) after "Store Name"
+    # Use \S+ to grab just the value, not the entire remaining page.
+    store_name = (
+        _find(full_text, r"Store\s*Name\s+(\S+(?:\s+\S+){0,2})" + _STOP)
+        or _find(full_text, r"Store\s*Name\s+(\S+)")
+    )
+
+    location = _find(
         full_text,
-        r"\b(NAKURU|NAIROBI|MOMBASA|KISUMU|ELDORET|THIKA|RUIRU|KAREN|WESTLANDS|MLOLONGO)\b",
+        r"\b(NAKURU|NAIROBI|MOMBASA|KISUMU|ELDORET|THIKA|RUIRU|KAREN|WESTLANDS|MLOLONGO"
+        r"|NAIVASHA|KUBWA|NDOGO)\b",
     )
 
     grn["store"] = {
@@ -267,29 +296,32 @@ def _parse(tokens: list[str], full_text: str, rows: list[list[str]]) -> dict:
         "location":     location,
     }
 
-    # ── 3. Supplier ────────────────────────────────────────────────────────────
+    # ── 3. Supplier ───────────────────────────────────────────────────────────
     grn["supplier"] = {
         "company_name": (
-            _find(full_text, r"(QUALITY\s+OUTSOURCE\s+SOLUTION[^\s,\n]*)")
-            or _find(full_text, r"Supplier\s+([A-Z][A-Za-z ]+?)(?:\s{2,}|GRN|$)")
+            _find(full_text, r"(QUALITY\s+OUTSOURCE\s+SOLUTION(?:\s+LIMITED)?)")
+            or _find(full_text, r"Supplier\s+([A-Z][A-Za-z ]+?)" + _STOP)
         ),
         "email": _find(full_text, r"(\S+@\S+\.\S+)"),
     }
 
-    # ── 4. Line items ──────────────────────────────────────────────────────────
-    # Strategy: scan tokens for 6-digit item codes, then collect
-    # description + numeric columns from following tokens / the same row.
+    # ── 4. Line items ─────────────────────────────────────────────────────────
+    # Supports both:
+    #   Cleanshelf → 6-digit item codes  (e.g. 290719)
+    #   Naivas     → 13-digit barcodes   (e.g. 2035031000000)
+    _ITEM_CODE_RE = re.compile(r"^\d{6}$|^\d{13}$")
+
     items: list[dict] = []
     i = 0
 
     while i < len(tokens):
         tok = tokens[i]
 
-        if not re.fullmatch(r"\d{6}", tok):
+        if not _ITEM_CODE_RE.match(tok):
             i += 1
             continue
 
-        item_code   = tok
+        item_code    = tok
         description: list[str] = []
         qty          = None
         uom          = None
@@ -300,17 +332,20 @@ def _parse(tokens: list[str], full_text: str, rows: list[list[str]]) -> dict:
         while j < len(tokens):
             t = tokens[j]
 
-            # Stop at next item code or section keywords
-            if re.fullmatch(r"\d{6}", t):
+            # Stop at the next item code (same format as anchor)
+            if _ITEM_CODE_RE.match(t):
                 break
+
+            # Stop at totals / footer keywords
             if re.search(
-                r"^(Net\s*A[Mm]|VAT\s*A|Total\s*A|With\s*Hold|Prepared|Authorised|"
-                r"Approved|Checked|\*+End|Printed)",
+                r"^(Sub\s*total|Order\s*total|Net\s*A[Mm]|VAT|Total\s*A|"
+                r"With\s*Hold|Prepared|Authorised|Approved|Checked|\*+End|Printed|"
+                r"RECEIVED|CONFIRMED)",
                 t, re.IGNORECASE,
             ):
                 break
 
-            t_upper = t.upper().rstrip("S")  # "KGS" → "KG"
+            t_upper = t.upper().rstrip("S")   # "KGS" → "KG"
 
             # UOM token
             if t.upper() in _KNOWN_UOMS or t_upper in _KNOWN_UOMS:
@@ -318,39 +353,30 @@ def _parse(tokens: list[str], full_text: str, rows: list[list[str]]) -> dict:
                 j += 1
                 continue
 
-            # Numeric token (possibly with commas, colons, or % junk)
-            clean = t.replace(",", "").replace(":", ".").rstrip(".")
-            # Strip trailing non-numeric characters like "96" after a number
-            clean = re.sub(r"[^\d.]", "", clean)
+            # Numeric token — strip commas / stray punctuation before parsing
+            clean = re.sub(r"[^\d.]", "", t.replace(",", "").replace(":", ".").rstrip("."))
             if re.fullmatch(r"\d+\.?\d*", clean) and clean:
                 val = float(clean)
-                # Heuristic: percentages (>100 are unlikely cost prices for
-                # qty / price unless they're clearly large totals)
                 if qty is None and val < 10_000:
                     qty = val
                 elif unit_price is None:
                     unit_price = val
                 elif net_amount is None:
-                    # The Cleanshelf GRN has many price columns after unit price
-                    # (Last CP, CP incl., SP incl., margin …).
-                    # We take the SECOND price as unit_price (CP incl.) and
-                    # stop there; net_amount is calculated below.
                     net_amount = val
                     j += 1
                     break
                 j += 1
                 continue
 
-            # Skip punctuation / noise tokens
+            # Skip pure punctuation / noise tokens
             if re.fullmatch(r"[.,:\-|%]+", t) or t in ("1", "0"):
                 j += 1
                 continue
 
-            # Otherwise it contributes to the description
+            # Everything else is part of the description
             description.append(t)
             j += 1
 
-        # Compute net_amount if it wasn't read directly
         computed_net = round((qty or 1.0) * (unit_price or 0.0), 2)
         if net_amount is None:
             net_amount = computed_net
@@ -368,22 +394,38 @@ def _parse(tokens: list[str], full_text: str, rows: list[list[str]]) -> dict:
 
     grn["items"] = items
 
-    # ── 5. Totals ──────────────────────────────────────────────────────────────
+    # ── 5. Totals ─────────────────────────────────────────────────────────────
     def _money(pattern: str) -> float | None:
         s = _find(full_text, pattern)
         return float(s.replace(",", "")) if s else None
 
-    grn["sub_total"]   = _money(r"Net\s*A[Mm][Oo][Uu][Nn][Tt]\s*[:\|]?\s*([\d,]+\.\d{2})")
-    grn["vat"]         = _money(r"VAT\s*A[Mm][Oo][Uu][Nn][Tt]\s*[:\|]?\s*([\d,]+\.\d{2})") or 0.0
+    grn["sub_total"] = (
+        _money(r"Sub\s*total\s*([\d,]+\.\d{2})")
+        or _money(r"Net\s*A[Mm][Oo][Uu][Nn][Tt]\s*[:\|]?\s*([\d,]+\.\d{2})")
+    )
+    grn["vat"] = (
+        _money(r"VAT\s*([\d,]+\.\d{2})")
+        or _money(r"VAT\s*A[Mm][Oo][Uu][Nn][Tt]\s*[:\|]?\s*([\d,]+\.\d{2})")
+        or 0.0
+    )
     grn["order_total"] = (
-        _money(r"Total\s*A[Rr]?[Oo][Uu][Nn][Tt]\s*[:\|]?\s*([\d,]+\.\d{2})")
+        _money(r"Order\s*total\s*([\d,]+\.\d{2})")
+        or _money(r"Total\s*A[Rr]?[Oo][Uu][Nn][Tt]\s*[:\|]?\s*([\d,]+\.\d{2})")
         or _money(r"Total\s*Net\s*Amount\s*TO\s*Pay\s*[:\|]?\s*([\d,]+\.\d{2})")
     )
 
-    # ── 6. Signatories ─────────────────────────────────────────────────────────
-    grn["received_by"]  = _find(full_text, r"Prepared\s+By\s+([A-Za-z]+)")
-    grn["confirmed_by"] = _find(full_text, r"Authoris[e]?d\s+By\s+([A-Za-z ]+?)(?:\s{2,}|$|Approved)")
-    grn["date"]         = _find(full_text, r"Date\s+(\d{1,2}\s+\w+,?\s+\d{4})")
+    # ── 6. Signatories ────────────────────────────────────────────────────────
+    # Naivas:     "RECEIVED BY: DANIEL MOMANYI OIGO"
+    # Cleanshelf: "Prepared By <name>"
+    grn["received_by"] = (
+        _find(full_text, r"RECEIVED\s+BY[:\s]+([A-Za-z ]+?)(?=\s+(?:CONFIRMED|SIGN|$))")
+        or _find(full_text, r"Prepared\s+By\s+([A-Za-z]+)")
+    )
+    grn["confirmed_by"] = (
+        _find(full_text, r"CONFIRMED\s+BY[:\s]+([A-Za-z ]+?)(?=\s+(?:SIGN|DATE|Page|$))")
+        or _find(full_text, r"Authoris[e]?d\s+By\s+([A-Za-z ]+?)(?=\s+(?:Approved|Page|$))")
+    )
+    grn["date"] = _find(full_text, r"Date[:\s]+(\d{1,2}\s+\w+,?\s+\d{4})")
 
     return grn
 

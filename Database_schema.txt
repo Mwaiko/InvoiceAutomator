@@ -1,0 +1,263 @@
+
+postgres=# \c grn_db;
+You are now connected to database "grn_db" as user "postgres".
+grn_db=# \dt;
+             List of relations
+ Schema |      Name      | Type  |  Owner   
+--------+----------------+-------+----------
+ public | branches       | table | postgres
+ public | businesses     | table | postgres
+ public | etims_invoices | table | postgres
+ public | grns           | table | postgres
+ public | orders         | table | postgres
+ public | users          | table | postgres
+(6 rows)
+
+grn_db=# \d branches;
+                               Table "public.branches"
+     Column     |           Type           | Collation | Nullable |      Default      
+----------------+--------------------------+-----------+----------+-------------------
+ id             | uuid                     |           | not null | gen_random_uuid()
+ business_id    | uuid                     |           | not null | 
+ branch_name    | character varying(255)   |           | not null | 
+ store_number   | character varying(50)    |           |          | 
+ location       | character varying(255)   |           |          | 
+ address        | text                     |           |          | 
+ county         | character varying(100)   |           |          | 
+ contact_person | character varying(255)   |           |          | 
+ phone          | character varying(50)    |           |          | 
+ email          | character varying(255)   |           |          | 
+ total_invoiced | numeric(15,2)            |           |          | 0.00
+ total_paid     | numeric(15,2)            |           |          | 0.00
+ created_at     | timestamp with time zone |           |          | now()
+ updated_at     | timestamp with time zone |           |          | now()
+ is_active      | boolean                  |           | not null | true
+Indexes:
+    "branches_pkey" PRIMARY KEY, btree (id)
+    "branches_branch_name_idx" btree (branch_name)
+    "branches_business_id_idx" btree (business_id)
+Foreign-key constraints:
+    "branches_business_id_fkey" FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE
+Referenced by:
+    TABLE "etims_invoices" CONSTRAINT "etims_invoices_branch_id_fkey" FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE SET NULL
+    TABLE "grns" CONSTRAINT "grns_branch_id_fkey" FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE CASCADE
+Triggers:
+    trg_branches_updated_at BEFORE UPDATE ON branches FOR EACH ROW EXECUTE FUNCTION set_updated_at()
+
+grn_db=# \d businesses;
+                                Table "public.businesses"
+       Column       |           Type           | Collation | Nullable |      Default      
+--------------------+--------------------------+-----------+----------+-------------------
+ id                 | uuid                     |           | not null | gen_random_uuid()
+ name               | character varying(255)   |           | not null | 
+ kra_pin            | character varying(50)    |           |          | 
+ email              | character varying(255)   |           |          | 
+ phone              | character varying(50)    |           |          | 
+ credit_limit       | numeric(15,2)            |           |          | 0.00
+ payment_terms_days | integer                  |           |          | 0
+ total_invoiced     | numeric(15,2)            |           |          | 0.00
+ total_paid         | numeric(15,2)            |           |          | 0.00
+ is_active          | boolean                  |           | not null | true
+ created_at         | timestamp with time zone |           |          | now()
+ updated_at         | timestamp with time zone |           |          | now()
+Indexes:
+    "businesses_pkey" PRIMARY KEY, btree (id)
+    "businesses_kra_pin_idx" UNIQUE, btree (kra_pin)
+    "businesses_name_idx" btree (name)
+Referenced by:
+    TABLE "branches" CONSTRAINT "branches_business_id_fkey" FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE
+    TABLE "etims_invoices" CONSTRAINT "etims_invoices_business_id_fkey" FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE SET NULL
+    TABLE "grns" CONSTRAINT "grns_business_id_fkey" FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE
+Triggers:
+    trg_businesses_updated_at BEFORE UPDATE ON businesses FOR EACH ROW EXECUTE FUNCTION set_updated_at()
+
+grn_db=# \d etims_invoices;
+                                   Table "public.etims_invoices"
+      Column      |           Type           | Collation | Nullable |            Default            
+------------------+--------------------------+-----------+----------+-------------------------------
+ id               | uuid                     |           | not null | gen_random_uuid()
+ grn_id           | uuid                     |           |          | 
+ status           | etimsstatus              |           | not null | 'pending'::etimsstatus
+ payment_status   | payment_status_new       |           | not null | 'pending'::payment_status_new
+ invoice_amount   | double precision         |           |          | 0.0
+ amount_paid      | double precision         |           |          | 0.0
+ kra_invoice_no   | character varying(100)   |           |          | 
+ payload          | jsonb                    |           |          | 
+ kra_response     | jsonb                    |           |          | 
+ created_at       | timestamp with time zone |           |          | now()
+ updated_at       | timestamp with time zone |           |          | now()
+ grn_number       | character varying(100)   |           |          | 
+ store_number     | character varying(50)    |           |          | 
+ lpo_number       | character varying(100)   |           |          | 
+ cust_invoice_no  | character varying(100)   |           |          | 
+ invoice_no       | character varying(100)   |           |          | 
+ business_id      | uuid                     |           |          | 
+ branch_id        | uuid                     |           |          | 
+ business_name    | character varying(255)   |           |          | 
+ branch_name      | character varying(255)   |           |          | 
+ invoice_pdf_path | character varying(1000)  |           |          | 
+ error_message    | text                     |           |          | 
+ retry_count      | integer                  |           | not null | 0
+ submitted_by_id  | uuid                     |           |          | 
+Indexes:
+    "etims_invoices_pkey" PRIMARY KEY, btree (id)
+    "etims_invoices_branch_id_idx" btree (branch_id)
+    "etims_invoices_business_id_idx" btree (business_id)
+    "etims_invoices_grn_id_idx" btree (grn_id)
+    "etims_invoices_grn_number_idx" btree (grn_number)
+    "etims_invoices_lpo_number_idx" btree (lpo_number)
+    "etims_invoices_status_idx" btree (status)
+Foreign-key constraints:
+    "etims_invoices_branch_id_fkey" FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE SET NULL
+    "etims_invoices_business_id_fkey" FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE SET NULL
+    "etims_invoices_grn_id_fkey" FOREIGN KEY (grn_id) REFERENCES grns(id) ON DELETE SET NULL
+    "etims_invoices_submitted_by_id_fkey" FOREIGN KEY (submitted_by_id) REFERENCES users(id) ON DELETE SET NULL
+Triggers:
+    trg_etims_invoices_updated_at BEFORE UPDATE ON etims_invoices FOR EACH ROW EXECUTE FUNCTION set_updated_at()
+
+grn_db=# \d grns;
+                                     Table "public.grns"
+      Column       |           Type           | Collation | Nullable |        Default        
+-------------------+--------------------------+-----------+----------+-----------------------
+ id                | uuid                     |           | not null | gen_random_uuid()
+ business_id       | uuid                     |           |          | 
+ branch_id         | uuid                     |           |          | 
+ status            | grnstatus                |           | not null | 'uploaded'::grnstatus
+ extracted_data    | jsonb                    |           |          | 
+ confirmed_data    | jsonb                    |           |          | 
+ uploaded_by_id    | uuid                     |           |          | 
+ created_at        | timestamp with time zone |           |          | now()
+ updated_at        | timestamp with time zone |           |          | now()
+ original_filename | character varying(500)   |           |          | 
+ storage_path      | character varying(1000)  |           |          | 
+ file_type         | character varying(10)    |           |          | 
+ etims_payload     | jsonb                    |           |          | 
+ etims_response    | jsonb                    |           |          | 
+ invoice_no        | character varying(100)   |           |          | 
+ rejection_reason  | text                     |           |          | 
+Indexes:
+    "grns_pkey" PRIMARY KEY, btree (id)
+    "grns_branch_id_idx" btree (branch_id)
+    "grns_business_id_idx" btree (business_id)
+    "grns_status_idx" btree (status)
+    "grns_uploaded_by_idx" btree (uploaded_by_id)
+Foreign-key constraints:
+    "grns_branch_id_fkey" FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE CASCADE
+    "grns_business_id_fkey" FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE
+    "grns_uploaded_by_id_fkey" FOREIGN KEY (uploaded_by_id) REFERENCES users(id) ON DELETE SET NULL
+Referenced by:
+    TABLE "etims_invoices" CONSTRAINT "etims_invoices_grn_id_fkey" FOREIGN KEY (grn_id) REFERENCES grns(id) ON DELETE SET NULL
+Triggers:
+    trg_grns_updated_at BEFORE UPDATE ON grns FOR EACH ROW EXECUTE FUNCTION set_updated_at()
+
+grn_db=# \d orders;
+                                  Table "public.orders"
+     Column     |           Type           | Collation | Nullable |       Default        
+----------------+--------------------------+-----------+----------+----------------------
+ id             | uuid                     |           | not null | gen_random_uuid()
+ order_number   | character varying(100)   |           | not null | 
+ lpo_number     | character varying(100)   |           |          | 
+ supplier_name  | character varying(255)   |           |          | 
+ status         | orderstatus              |           | not null | 'draft'::orderstatus
+ sub_total      | numeric(15,2)            |           |          | 0.00
+ vat            | numeric(15,2)            |           |          | 0.00
+ order_total    | numeric(15,2)            |           |          | 0.00
+ items          | jsonb                    |           |          | 
+ created_by_id  | uuid                     |           |          | 
+ created_at     | timestamp with time zone |           |          | now()
+ updated_at     | timestamp with time zone |           |          | now()
+ supplier_email | character varying(255)   |           |          | 
+ supplier_phone | character varying(50)    |           |          | 
+ vendor_id      | character varying(100)   |           |          | 
+ store_name     | character varying(255)   |           |          | 
+ store_number   | character varying(50)    |           |          | 
+ order_date     | character varying(50)    |           |          | 
+ expected_date  | character varying(50)    |           |          | 
+ notes          | text                     |           |          | 
+Indexes:
+    "orders_pkey" PRIMARY KEY, btree (id)
+    "orders_created_by_idx" btree (created_by_id)
+    "orders_lpo_number_idx" btree (lpo_number)
+    "orders_order_number_idx" UNIQUE, btree (order_number)
+    "orders_status_idx" btree (status)
+Foreign-key constraints:
+    "orders_created_by_id_fkey" FOREIGN KEY (created_by_id) REFERENCES users(id) ON DELETE SET NULL
+Triggers:
+    trg_orders_updated_at BEFORE UPDATE ON orders FOR EACH ROW EXECUTE FUNCTION set_updated_at()
+
+grn_db=# \d users;
+                                 Table "public.users"
+     Column      |           Type           | Collation | Nullable |      Default      
+-----------------+--------------------------+-----------+----------+-------------------
+ id              | uuid                     |           | not null | gen_random_uuid()
+ email           | character varying(255)   |           | not null | 
+ full_name       | character varying(255)   |           |          | 
+ hashed_password | character varying(255)   |           |          | 
+ role            | userrole                 |           |          | 
+ is_active       | boolean                  |           | not null | true
+ created_at      | timestamp with time zone |           |          | now()
+ updated_at      | timestamp with time zone |           |          | now()
+Indexes:
+    "users_pkey" PRIMARY KEY, btree (id)
+    "users_email_idx" UNIQUE, btree (email)
+Referenced by:
+    TABLE "etims_invoices" CONSTRAINT "etims_invoices_submitted_by_id_fkey" FOREIGN KEY (submitted_by_id) REFERENCES users(id) ON DELETE SET NULL
+    TABLE "grns" CONSTRAINT "grns_uploaded_by_id_fkey" FOREIGN KEY (uploaded_by_id) REFERENCES users(id) ON DELETE SET NULL
+    TABLE "orders" CONSTRAINT "orders_created_by_id_fkey" FOREIGN KEY (created_by_id) REFERENCES users(id) ON DELETE SET NULL
+Triggers:
+    trg_users_updated_at BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION set_updated_at()
+grn_db=# \d expenses
+                                Table "public.expenses"
+     Column      |           Type           | Collation | Nullable |      Default      
+-----------------+--------------------------+-----------+----------+-------------------
+ id              | uuid                     |           | not null | gen_random_uuid()
+ category_id     | uuid                     |           |          | 
+ source_id       | uuid                     |           |          | 
+ business_id     | uuid                     |           |          | 
+ branch_id       | uuid                     |           |          | 
+ amount          | numeric(15,2)            |           | not null | 
+ expense_date    | date                     |           | not null | CURRENT_DATE
+ description     | text                     |           |          | 
+ reference_no    | character varying(100)   |           |          | 
+ attachment_path | character varying(1000)  |           |          | 
+ created_by_id   | uuid                     |           |          | 
+ created_at      | timestamp with time zone |           |          | now()
+ updated_at      | timestamp with time zone |           |          | now()
+Indexes:
+    "expenses_pkey" PRIMARY KEY, btree (id)
+Foreign-key constraints:
+    "expenses_branch_id_fkey" FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE SET NULL
+    "expenses_business_id_fkey" FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE SET NULL
+    "expenses_category_id_fkey" FOREIGN KEY (category_id) REFERENCES expense_categories(id) ON DELETE SET NULL
+    "expenses_created_by_id_fkey" FOREIGN KEY (created_by_id) REFERENCES users(id) ON DELETE SET NULL
+    "expenses_source_id_fkey" FOREIGN KEY (source_id) REFERENCES payment_sources(id) ON DELETE SET NULL
+Triggers:
+    trg_expenses_updated_at BEFORE UPDATE ON expenses FOR EACH ROW EXECUTE FUNCTION set_updated_at()
+
+grn_db=# \d expense_categories
+                         Table "public.expense_categories"
+   Column    |           Type           | Collation | Nullable |      Default      
+-------------+--------------------------+-----------+----------+-------------------
+ id          | uuid                     |           | not null | gen_random_uuid()
+ name        | character varying(100)   |           | not null | 
+ description | text                     |           |          | 
+ created_at  | timestamp with time zone |           |          | now()
+Indexes:
+    "expense_categories_pkey" PRIMARY KEY, btree (id)
+Referenced by:
+    TABLE "expenses" CONSTRAINT "expenses_category_id_fkey" FOREIGN KEY (category_id) REFERENCES expense_categories(id) ON DELETE SET NULL
+
+grn_db=# \d payment_sources
+                            Table "public.payment_sources"
+     Column      |           Type           | Collation | Nullable |      Default      
+-----------------+--------------------------+-----------+----------+-------------------
+ id              | uuid                     |           | not null | gen_random_uuid()
+ account_name    | character varying(255)   |           | not null | 
+ bank_name       | character varying(255)   |           |          | 
+ account_number  | character varying(50)    |           |          | 
+ current_balance | numeric(15,2)            |           |          | 0.00
+ created_at      | timestamp with time zone |           |          | now()
+Indexes:
+    "payment_sources_pkey" PRIMARY KEY, btree (id)
+Referenced by:
+    TABLE "expenses" CONSTRAINT "expenses_source_id_fkey" FOREIGN KEY (source_id) REFERENCES payment_sources(id) ON DELETE SET NULL
