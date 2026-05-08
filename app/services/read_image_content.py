@@ -106,7 +106,7 @@ def _call_nvidia_ocr(image_path: str) -> list[dict]:
     POST the image to the NVIDIA Nemotron-OCR endpoint.
     Returns the raw list of text-detection dicts.
     """
-    api_key = "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"
+    api_key = os.environ.get("nvapi") or os.environ.get("NVAPI_KEY")
     if not api_key:
         raise EnvironmentError(
             "NVIDIA OCR API key not found. "
