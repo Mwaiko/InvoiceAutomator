@@ -7,7 +7,6 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
-
 class ItemResponse(BaseModel):
     id:           uuid.UUID
     product_name: str
@@ -16,7 +15,5 @@ class ItemResponse(BaseModel):
     tax_ty_cd:    str | None
     uom:          str | None
     pkg_cd:       str | None
-    created_at:   datetime
-    updated_at:   datetime
 
     model_config = {"from_attributes": True}

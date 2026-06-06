@@ -105,9 +105,9 @@ class OrderItem(UUIDMixin, TimestampMixin, Base):
 
     # ── Derived helpers ───────────────────────────────────────────────────────
     @property
-    def product_name(self) -> str:
+    def associated_product_name(self) -> str:
         return self.product.product_name if self.product else ""
-
+    
     @property
     def net_amount(self) -> float:
         return float(self.quantity_requested) * float(self.unit_price)
