@@ -93,7 +93,7 @@ class OrderItem(UUIDMixin, TimestampMixin, Base):
 
     # ── Origin ────────────────────────────────────────────────────────────────
     source: Mapped[OrderItemSource] = mapped_column(
-        Enum(OrderItemSource),
+        Enum(OrderItemSource, name="produce_source"),  # <-- Add the name here
         nullable=False,
         default=OrderItemSource.manual,
     )
