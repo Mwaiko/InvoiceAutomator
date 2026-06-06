@@ -26,10 +26,7 @@ async def list_items(
     db: AsyncSession = Depends(get_db),
     _user=Depends(get_current_user),
 ):
-    """
-    Return catalog items.  Use ?search=<term> to filter by product name or
-    item code — handy for a frontend autocomplete / search-as-you-type box.
-    """
+   
     q = select(Items).order_by(Items.product_name)
 
     if search:

@@ -26,7 +26,7 @@ class OrderItemSource(str, enum.Enum):
 
 
 # ── 1. Items (master catalogue) ───────────────────────────────────────────────
-class Items(UUIDMixin, TimestampMixin, Base):
+class Items(UUIDMixin, Base):
     """
     Master catalogue entry for a product / stock-keeping unit.
 
