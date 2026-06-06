@@ -9,18 +9,20 @@ PATCH  /orders/{id}/status        – transition order status
 DELETE /orders/{id}               – cancel a draft order (soft — sets status=cancelled)
 DELETE /orders/{id}/permanent     – permanently delete an order (draft/cancelled only)
 GET    /orders/{id}/grns          – list GRNs linked to this order (via lpo_number)
-GET    /orders/{id}/payments      – list payments linked to this order
 """
 import uuid
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.api.deps import PaginationDep, get_current_user, get_db
 from app.core.exceptions import NotFoundError
 from app.db.models.grn import GRN
+from app.db.models.items import Items, OrderItem as OrderItemModel, OrderItemSource
 from app.db.models.order import Order, OrderStatus, OrderType
 from app.schemas.order import (
     OrderCreateRequest,
+    OrderItem as OrderItemSchema,
     OrderResponse,
     OrderStatusUpdate,
     OrderUpdateRequest,
@@ -28,8 +30,85 @@ from app.schemas.order import (
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
-# Statuses that cannot be edited
 LOCKED_STATUSES = {OrderStatus.fully_received, OrderStatus.cancelled}
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+async def _build_order_items(
+    db: AsyncSession,
+    order_id: uuid.UUID,
+    items: list[OrderItemSchema],
+) -> list[OrderItemModel]:
+    """
+    Convert schema line items → ORM OrderItem rows.
+
+    - If item_id is provided, validates it exists in the Items catalogue and
+      uses it as product_id.
+    - If item_id is omitted, looks up the catalogue by itemcd (item_code) as a
+      fallback.  If still not found, raises 422 so the caller knows which line
+      is broken rather than silently dropping it.
+    """
+    orm_items: list[OrderItemModel] = []
+
+    for idx, line in enumerate(items, start=1):
+        product_id: uuid.UUID | None = None
+
+        # ── 1. Direct catalogue reference (preferred) ─────────────────────────
+        if line.item_id:
+            product = await db.get(Items, line.item_id)
+            if not product:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Line {idx}: item_id '{line.item_id}' not found in catalogue.",
+                )
+            product_id = product.id
+
+        # ── 2. Fallback: match by item_code → itemcd ──────────────────────────
+        elif line.item_code:
+            result = await db.execute(
+                select(Items).where(Items.itemcd == line.item_code).limit(1)
+            )
+            product = result.scalar_one_or_none()
+            if product:
+                product_id = product.id
+
+        if product_id is None:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"Line {idx} ('{line.description}'): could not resolve a catalogue item. "
+                    "Provide item_id or a valid item_code."
+                ),
+            )
+
+        orm_items.append(
+            OrderItemModel(
+                order_id=order_id,
+                product_id=product_id,
+                quantity_requested=line.qty_ordered,
+                unit_price=line.unit_price,
+                source=OrderItemSource.manual,
+            )
+        )
+
+    return orm_items
+
+
+def _items_to_jsonb(items: list[OrderItemSchema]) -> list[dict]:
+    """Serialise schema items to the JSONB snapshot on Order.items."""
+    return [
+        {
+            "item_id":     str(i.item_id) if i.item_id else None,
+            "item_code":   i.item_code,
+            "description": i.description,
+            "uom":         i.uom,
+            "qty_ordered": i.qty_ordered,
+            "unit_price":  i.unit_price,
+            "net_amount":  round(i.qty_ordered * i.unit_price, 2),
+        }
+        for i in items
+    ]
 
 
 # ── Create ────────────────────────────────────────────────────────────────────
@@ -50,18 +129,30 @@ async def create_order(
             detail=f"Order number '{body.order_number}' already exists",
         )
 
+    # Build the order — exclude `items` from model_dump so we handle it ourselves
+    order_data = body.model_dump(exclude={"items"})
+    order_data["items"] = _items_to_jsonb(body.items)  # JSONB snapshot
+
     order = Order(
-        **body.model_dump(),
+        **order_data,
         created_by_id=user.id,
         status=OrderStatus.draft,
-        # order_type comes from body (purchase_order or return_order);
-        # sales_order is blocked by the schema validator.
     )
     db.add(order)
+    # Flush to get the order.id before creating child rows
+    await db.flush()
+
+    # Persist normalised OrderItem rows
+    if body.items:
+        orm_items = await _build_order_items(db, order.id, body.items)
+        db.add_all(orm_items)
+
     await db.commit()
     await db.refresh(order)
     return order
 
+
+# ── List ──────────────────────────────────────────────────────────────────────
 
 @router.get("", response_model=list[OrderResponse])
 async def list_orders(
@@ -116,17 +207,33 @@ async def update_order(
             status_code=409,
             detail=f"Cannot edit an order with status '{order.status}'",
         )
-
-    # Guard: order_type can only be changed while still in draft
     if "order_type" in body.model_fields_set and order.status != OrderStatus.draft:
         raise HTTPException(
             status_code=409,
             detail="order_type can only be changed while the order is in 'draft' status.",
         )
 
-    # Apply only the fields that were actually sent
-    for field, value in body.model_dump(exclude_unset=True).items():
+    # Apply scalar fields (exclude items — handled separately below)
+    for field, value in body.model_dump(exclude_unset=True, exclude={"items"}).items():
         setattr(order, field, value)
+
+    # ── Re-sync line items if the caller sent a new list ──────────────────────
+    if body.items is not None:
+        # Replace JSONB snapshot
+        order.items = _items_to_jsonb(body.items)
+
+        # Replace normalised rows: delete existing, insert fresh
+        existing_items = await db.execute(
+            select(OrderItemModel).where(OrderItemModel.order_id == order_id)
+        )
+        for old in existing_items.scalars().all():
+            await db.delete(old)
+
+        await db.flush()  # ensure deletes land before inserts
+
+        if body.items:
+            new_orm_items = await _build_order_items(db, order_id, body.items)
+            db.add_all(new_orm_items)
 
     await db.commit()
     await db.refresh(order)
@@ -146,13 +253,12 @@ async def update_order_status(
     if not order:
         raise NotFoundError(f"Order {order_id} not found")
 
-    # Enforce valid transitions
     valid_transitions: dict[OrderStatus, set[OrderStatus]] = {
         OrderStatus.draft:              {OrderStatus.sent, OrderStatus.cancelled},
         OrderStatus.sent:               {OrderStatus.partially_received, OrderStatus.fully_received, OrderStatus.cancelled},
         OrderStatus.partially_received: {OrderStatus.fully_received, OrderStatus.cancelled},
-        OrderStatus.fully_received:     set(),   # terminal
-        OrderStatus.cancelled:          set(),   # terminal
+        OrderStatus.fully_received:     set(),
+        OrderStatus.cancelled:          set(),
     }
 
     allowed = valid_transitions.get(order.status, set())
@@ -167,7 +273,6 @@ async def update_order_status(
 
     order.status = body.status
 
-    # ── Auto-promote to sales_order when fully received ───────────────────────
     if body.status == OrderStatus.fully_received:
         order.order_type = OrderType.sales_order
 
@@ -179,7 +284,7 @@ async def update_order_status(
     return order
 
 
-# ── Cancel (convenience alias for status → cancelled) ────────────────────────
+# ── Cancel ────────────────────────────────────────────────────────────────────
 
 @router.delete("/{order_id}", response_model=OrderResponse)
 async def cancel_order(
@@ -201,7 +306,7 @@ async def cancel_order(
     return order
 
 
-# ── Permanent delete (draft / cancelled only) ─────────────────────────────────
+# ── Permanent delete ──────────────────────────────────────────────────────────
 
 @router.delete("/{order_id}/permanent", status_code=204)
 async def delete_order_permanent(
@@ -209,7 +314,6 @@ async def delete_order_permanent(
     db: AsyncSession = Depends(get_db),
     _user=Depends(get_current_user),
 ):
-    """Hard-delete an order. Only allowed for draft or cancelled orders."""
     order = await db.get(Order, order_id)
     if not order:
         raise NotFoundError(f"Order {order_id} not found")
@@ -233,7 +337,6 @@ async def get_order_grns(
     db: AsyncSession = Depends(get_db),
     _user=Depends(get_current_user),
 ):
-    """Returns GRNs that were linked to this order via matching lpo_number."""
     order = await db.get(Order, order_id)
     if not order:
         raise NotFoundError(f"Order {order_id} not found")

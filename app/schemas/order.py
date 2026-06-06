@@ -14,12 +14,15 @@ from app.db.models.order import OrderStatus, OrderType
 # ── Line item ─────────────────────────────────────────────────────────────────
 
 class OrderItem(BaseModel):
-    item_code:   str | None = None
+    # item_id links to the Items catalogue row; required to create a normalised
+    # OrderItem.  The frontend sends this after the user picks from the catalog.
+    item_id:     uuid.UUID | None = None
+    item_code:   str | None       = None
     description: str
-    uom:         str        = "PCS"
-    qty_ordered: float      = Field(..., gt=0)
-    unit_price:  float      = Field(..., ge=0)
-    net_amount:  float      = 0.0
+    uom:         str               = "PCS"
+    qty_ordered: float             = Field(..., gt=0)
+    unit_price:  float             = Field(..., ge=0)
+    net_amount:  float             = 0.0
 
 
 # ── Create ────────────────────────────────────────────────────────────────────
@@ -33,8 +36,6 @@ class OrderCreateRequest(BaseModel):
     vendor_id:      str | None  = None
     store_name:     str | None  = None
     store_number:   str | None  = None
-    # Only purchase_order or return_order allowed at creation time;
-    # sales_order is set automatically on full receipt.
     order_type:     OrderType   = OrderType.purchase_order
     items:          list[OrderItem] = Field(default_factory=list)
     sub_total:      float | None    = None
@@ -58,21 +59,19 @@ class OrderCreateRequest(BaseModel):
 # ── Update (partial) ──────────────────────────────────────────────────────────
 
 class OrderUpdateRequest(BaseModel):
-    supplier_name:  str | None      = None
-    supplier_email: str | None      = None
-    supplier_phone: str | None      = None
-    store_name:     str | None      = None
-    store_number:   str | None      = None
-    # order_type may be switched between purchase_order / return_order on draft orders.
-    # sales_order is blocked here too; it is set by the status transition logic.
+    supplier_name:  str | None       = None
+    supplier_email: str | None       = None
+    supplier_phone: str | None       = None
+    store_name:     str | None       = None
+    store_number:   str | None       = None
     order_type:     OrderType | None = None
     items:          list[OrderItem] | None = None
-    sub_total:      float | None    = None
-    vat:            float | None    = None
-    order_total:    float | None    = None
-    order_date:     str | None      = None
-    expected_date:  str | None      = None
-    notes:          str | None      = None
+    sub_total:      float | None     = None
+    vat:            float | None     = None
+    order_total:    float | None     = None
+    order_date:     str | None       = None
+    expected_date:  str | None       = None
+    notes:          str | None       = None
 
     @field_validator("order_type")
     @classmethod
