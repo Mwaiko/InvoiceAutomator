@@ -2,7 +2,7 @@
 app/api/orders.py
 
 POST   /orders                    – create an order (LPO)
-GET    /orders                    – list orders (paginated, filterable by status)
+GET    /orders                    – list orders (paginated, filterable by status / order_type)
 GET    /orders/{id}               – get single order
 PATCH  /orders/{id}               – update draft order fields
 PATCH  /orders/{id}/status        – transition order status
@@ -11,17 +11,14 @@ DELETE /orders/{id}/permanent     – permanently delete an order (draft/cancell
 GET    /orders/{id}/grns          – list GRNs linked to this order (via lpo_number)
 GET    /orders/{id}/payments      – list payments linked to this order
 """
-
 import uuid
-
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.api.deps import PaginationDep, get_current_user, get_db
 from app.core.exceptions import NotFoundError
 from app.db.models.grn import GRN
-from app.db.models.order import Order, OrderStatus
+from app.db.models.order import Order, OrderStatus, OrderType
 from app.schemas.order import (
     OrderCreateRequest,
     OrderResponse,
@@ -48,12 +45,17 @@ async def create_order(
         select(Order).where(Order.order_number == body.order_number)
     )
     if existing.scalar_one_or_none():
-        raise HTTPException(status_code=409, detail=f"Order number '{body.order_number}' already exists")
+        raise HTTPException(
+            status_code=409,
+            detail=f"Order number '{body.order_number}' already exists",
+        )
 
     order = Order(
         **body.model_dump(),
         created_by_id=user.id,
         status=OrderStatus.draft,
+        # order_type comes from body (purchase_order or return_order);
+        # sales_order is blocked by the schema validator.
     )
     db.add(order)
     await db.commit()
@@ -61,12 +63,11 @@ async def create_order(
     return order
 
 
-# ── List ──────────────────────────────────────────────────────────────────────
-
 @router.get("", response_model=list[OrderResponse])
 async def list_orders(
     pagination: PaginationDep,
     status: OrderStatus | None = None,
+    order_type: OrderType | None = None,
     supplier_name: str | None = None,
     db: AsyncSession = Depends(get_db),
     _user=Depends(get_current_user),
@@ -74,6 +75,8 @@ async def list_orders(
     q = select(Order).order_by(Order.created_at.desc())
     if status:
         q = q.where(Order.status == status)
+    if order_type:
+        q = q.where(Order.order_type == order_type)
     if supplier_name:
         q = q.where(Order.supplier_name.ilike(f"%{supplier_name}%"))
     q = q.offset(pagination.offset).limit(pagination.limit)
@@ -111,7 +114,14 @@ async def update_order(
     if order.status in LOCKED_STATUSES:
         raise HTTPException(
             status_code=409,
-            detail=f"Cannot edit an order with status '{order.status}'"
+            detail=f"Cannot edit an order with status '{order.status}'",
+        )
+
+    # Guard: order_type can only be changed while still in draft
+    if "order_type" in body.model_fields_set and order.status != OrderStatus.draft:
+        raise HTTPException(
+            status_code=409,
+            detail="order_type can only be changed while the order is in 'draft' status.",
         )
 
     # Apply only the fields that were actually sent
@@ -149,11 +159,18 @@ async def update_order_status(
     if body.status not in allowed:
         raise HTTPException(
             status_code=409,
-            detail=f"Cannot transition from '{order.status}' to '{body.status}'. "
-                   f"Allowed: {[s.value for s in allowed] or 'none (terminal state)'}",
+            detail=(
+                f"Cannot transition from '{order.status}' to '{body.status}'. "
+                f"Allowed: {[s.value for s in allowed] or 'none (terminal state)'}"
+            ),
         )
 
     order.status = body.status
+
+    # ── Auto-promote to sales_order when fully received ───────────────────────
+    if body.status == OrderStatus.fully_received:
+        order.order_type = OrderType.sales_order
+
     if body.notes:
         order.notes = (order.notes or "") + f"\n[{body.status}] {body.notes}"
 

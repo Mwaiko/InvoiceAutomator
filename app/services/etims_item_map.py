@@ -35,9 +35,9 @@ Adding new items
 
 Classification codes
 ────────────────────
-5030150300  – Api apples (fresh fruit)
+5030150300  – Fresh fruit & capsicums (Api apples / capsicums / sukumawiki)
 5040150100  – Brittany artichokes / fresh vegetables & herbs
-5041150100  – Organic brittany artichokes / organic produce
+5041150100  – Organic brittany artichokes / organic produce & other vegetables
 8017190900  – Business & utility provider relations consultation
 8613210200  – Training, planning & development consultancy services
 """
@@ -98,22 +98,14 @@ ETIMS_ITEM_CATALOGUE: dict[str, ItemEntry] = {
     "COURGETTS"         : {"itemCd": "KE2BZXKGX00002", "item_cls_cd": "5040150100", "tax_ty_cd": "D", "uom": "KG",  "pkg_cd": "BZ"},
     "SALAD ONION 250G"  : {"itemCd": "KE2BZXU00001",   "item_cls_cd": "5040150100", "tax_ty_cd": "D", "uom": "U",   "pkg_cd": "BZ"},
 
-    "CELERY"            : {"itemCd": "KE2BEXBEX00005", "item_cls_cd": "5041150100", "tax_ty_cd": "D", "uom": "U",   "pkg_cd": "BZ"},
-    "EGGPLANT"          : {"itemCd": "KE2BEXBEX00006", "item_cls_cd": "5041150100", "tax_ty_cd": "D", "uom": "U",   "pkg_cd": "BZ"},
-    "ROSEMARY"          : {"itemCd": "KE2BEXBEX00007", "item_cls_cd": "5041150100", "tax_ty_cd": "D", "uom": "U",   "pkg_cd": "BZ"},
-    # ── Fresh fruit  (cls 5030150300) ─────────────────────────────────────────
-    "CAPSICUMS GREEN"   : {"itemCd": "KE1BEXKGX00006", "item_cls_cd": "5030150300", "tax_ty_cd": "D", "uom": "U",   "pkg_cd": "BZ"},
+    # ── Organic produce / other vegetables  (cls 5041150100) ────────────────────
+    "CELERY"            : {"itemCd": "KE2BEXBEX00005", "item_cls_cd": "5041150100", "tax_ty_cd": "D", "uom": "BE",  "pkg_cd": "BE"},
+    "EGGPLANT"          : {"itemCd": "KE2BEXBEX00006", "item_cls_cd": "5041150100", "tax_ty_cd": "D", "uom": "BE",  "pkg_cd": "BE"},
+    "ROSEMARY"          : {"itemCd": "KE2BEXBEX00007", "item_cls_cd": "5041150100", "tax_ty_cd": "D", "uom": "BE",  "pkg_cd": "BE"},
 
-    # ── Organic produce  (cls 5041150100) ─────────────────────────────────────
-    "ORGANIC BRITTANY ARTICHOKES": {"itemCd": "", "item_cls_cd": "5041150100", "tax_ty_cd": "D", "uom": "KG", "pkg_cd": "BE"},
+    # ── Fresh fruit / capsicums  (cls 5030150300) ─────────────────────────────
+    "CAPSICUMS GREEN"   : {"itemCd": "KE1BEXKGX00006", "item_cls_cd": "5030150300", "tax_ty_cd": "D", "uom": "KG",  "pkg_cd": "BE"},
 
-    # ── Consultancy services  (cls 8017190900 / 8613210200) ───────────────────
-    "BUSINESS AND UTILITY PROVIDER RELATIONS CONSULTATION AND ENGAGEMENT": {
-        "itemCd": "", "item_cls_cd": "8017190900", "tax_ty_cd": "B", "uom": "U", "pkg_cd": "BE",
-    },
-    "TRAINING PLANNING AND DEVELOPMENT CONSULTANCY SERVICE": {
-        "itemCd": "", "item_cls_cd": "8613210200", "tax_ty_cd": "B", "uom": "U", "pkg_cd": "BE",
-    },
 }
 
 
@@ -128,6 +120,8 @@ ITEM_NAME_ALIASES: dict[str, str] = {
     "COLLARD GREENS"    : "SUKUMA WIKI",
     "KALE"              : "KALES",
     "SKUMA"             : "SUKUMA WIKI", # Common typo
+    # NOTE: "SUKUMAWIKI" (no space) is a separate KRA item under cls 5030150300 —
+    # it lives as its own catalogue entry rather than an alias here.
     "SPINACHES"         : "SPINACH",
     "TERERE LEAVES"     : "TERERE",
     "AMARANTH"          : "TERERE",

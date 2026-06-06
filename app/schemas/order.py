@@ -6,9 +6,9 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
-from app.db.models.order import OrderStatus
+from app.db.models.order import OrderStatus, OrderType
 
 
 # ── Line item ─────────────────────────────────────────────────────────────────
@@ -26,37 +26,63 @@ class OrderItem(BaseModel):
 
 class OrderCreateRequest(BaseModel):
     order_number:   str
-    lpo_number:     str | None = None
+    lpo_number:     str | None  = None
     supplier_name:  str
-    supplier_email: str | None = None
-    supplier_phone: str | None = None
-    vendor_id:      str | None = None
-    store_name:     str | None = None
-    store_number:   str | None = None
+    supplier_email: str | None  = None
+    supplier_phone: str | None  = None
+    vendor_id:      str | None  = None
+    store_name:     str | None  = None
+    store_number:   str | None  = None
+    # Only purchase_order or return_order allowed at creation time;
+    # sales_order is set automatically on full receipt.
+    order_type:     OrderType   = OrderType.purchase_order
     items:          list[OrderItem] = Field(default_factory=list)
-    sub_total:      float | None   = None
-    vat:            float          = 0.0
-    order_total:    float | None   = None
-    order_date:     str | None     = None
-    expected_date:  str | None     = None
-    notes:          str | None     = None
+    sub_total:      float | None    = None
+    vat:            float           = 0.0
+    order_total:    float | None    = None
+    order_date:     str | None      = None
+    expected_date:  str | None      = None
+    notes:          str | None      = None
+
+    @field_validator("order_type")
+    @classmethod
+    def creation_type_not_sales(cls, v: OrderType) -> OrderType:
+        if v == OrderType.sales_order:
+            raise ValueError(
+                "Cannot create an order with type 'sales_order'. "
+                "Orders are promoted to sales_order automatically when fully received."
+            )
+        return v
 
 
 # ── Update (partial) ──────────────────────────────────────────────────────────
 
 class OrderUpdateRequest(BaseModel):
-    supplier_name:  str | None = None
-    supplier_email: str | None = None
-    supplier_phone: str | None = None
-    store_name:     str | None = None
-    store_number:   str | None = None
+    supplier_name:  str | None      = None
+    supplier_email: str | None      = None
+    supplier_phone: str | None      = None
+    store_name:     str | None      = None
+    store_number:   str | None      = None
+    # order_type may be switched between purchase_order / return_order on draft orders.
+    # sales_order is blocked here too; it is set by the status transition logic.
+    order_type:     OrderType | None = None
     items:          list[OrderItem] | None = None
-    sub_total:      float | None           = None
-    vat:            float | None           = None
-    order_total:    float | None           = None
-    order_date:     str | None             = None
-    expected_date:  str | None             = None
-    notes:          str | None             = None
+    sub_total:      float | None    = None
+    vat:            float | None    = None
+    order_total:    float | None    = None
+    order_date:     str | None      = None
+    expected_date:  str | None      = None
+    notes:          str | None      = None
+
+    @field_validator("order_type")
+    @classmethod
+    def update_type_not_sales(cls, v: OrderType | None) -> OrderType | None:
+        if v == OrderType.sales_order:
+            raise ValueError(
+                "Cannot manually set order_type to 'sales_order'. "
+                "It is promoted automatically when the order is fully received."
+            )
+        return v
 
 
 # ── Status transition ─────────────────────────────────────────────────────────
@@ -79,6 +105,7 @@ class OrderResponse(BaseModel):
     store_name:     str | None
     store_number:   str | None
     status:         str
+    order_type:     str
     items:          list[Any]
     sub_total:      float | None
     vat:            float
