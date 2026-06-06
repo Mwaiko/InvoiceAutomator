@@ -88,7 +88,7 @@ async def _build_order_items(
                 product_id=product_id,
                 quantity_requested=line.qty_ordered,
                 unit_price=line.unit_price,
-                source=OrderItemSource.manual,
+                source=line.source,  # ← use what the client sent
             )
         )
 
@@ -106,6 +106,7 @@ def _items_to_jsonb(items: list[OrderItemSchema]) -> list[dict]:
             "qty_ordered": i.qty_ordered,
             "unit_price":  i.unit_price,
             "net_amount":  round(i.qty_ordered * i.unit_price, 2),
+            "source":      i.source.value,  # ← NEW
         }
         for i in items
     ]

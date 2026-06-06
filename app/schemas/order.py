@@ -9,20 +9,20 @@ from typing import Any
 from pydantic import BaseModel, Field, field_validator
 
 from app.db.models.order import OrderStatus, OrderType
+from app.db.models.items import OrderItemSource  # ← NEW
 
 
 # ── Line item ─────────────────────────────────────────────────────────────────
 
 class OrderItem(BaseModel):
-    # item_id links to the Items catalogue row; required to create a normalised
-    # OrderItem.  The frontend sends this after the user picks from the catalog.
     item_id:     uuid.UUID | None = None
     item_code:   str | None       = None
     description: str
-    uom:         str               = "PCS"
-    qty_ordered: float             = Field(..., gt=0)
-    unit_price:  float             = Field(..., ge=0)
-    net_amount:  float             = 0.0
+    uom:         str              = "PCS"
+    qty_ordered: float            = Field(..., gt=0)
+    unit_price:  float            = Field(..., ge=0)
+    net_amount:  float            = 0.0
+    source:      OrderItemSource  = OrderItemSource.manual  # ← NEW
 
 
 # ── Create ────────────────────────────────────────────────────────────────────
