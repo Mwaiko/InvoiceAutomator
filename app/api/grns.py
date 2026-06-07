@@ -52,6 +52,101 @@ LOCKED_STATUSES = {GRNStatus.invoiced}
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
+async def _create_grn_items(
+    db: AsyncSession,
+    grn: GRN,
+    confirmed_data: dict,
+) -> None:
+    """
+    Match each confirmed GRN line item to its OrderItem and write GRNItem rows.
+
+    quantity_accepted = qty_received from the GRN (what arrived)
+    quantity_rejected = order quantity_requested - qty_received (the shortfall)
+    """
+    order_id_raw = confirmed_data.get("order_id")
+    if not order_id_raw:
+        logger.info(
+            "confirm_grn: no order_id in confirmed_data for GRN %s — "
+            "skipping grn_items creation",
+            grn.id,
+        )
+        return
+
+    try:
+        order_uuid = uuid.UUID(str(order_id_raw))
+    except ValueError:
+        logger.warning("confirm_grn: invalid order_id %r — skipping grn_items", order_id_raw)
+        return
+
+    # Load all OrderItems for the order, with their product eagerly loaded
+    result = await db.execute(
+        select(OrderItem)
+        .options(joinedload(OrderItem.product))
+        .where(OrderItem.order_id == order_uuid)
+    )
+    order_items: list[OrderItem] = result.scalars().all()
+
+    if not order_items:
+        logger.info(
+            "confirm_grn: order %s has no order_items — skipping grn_items",
+            order_uuid,
+        )
+        return
+
+    # Build a lookup: normalised description → OrderItem (and item_code fallback)
+    by_description: dict[str, OrderItem] = {}
+    by_item_code:   dict[str, OrderItem] = {}
+
+    for oi in order_items:
+        name = (oi.product.product_name if oi.product else "").strip().lower()
+        if name:
+            by_description[name] = oi
+        code = (oi.product.itemcd if oi.product else "") or ""
+        if code:
+            by_item_code[code.strip().lower()] = oi
+
+    grn_line_items: list[dict] = confirmed_data.get("items", [])
+
+    for line in grn_line_items:
+        desc      = (line.get("description") or "").strip().lower()
+        item_code = (line.get("item_code")   or "").strip().lower()
+
+        # Match: try item_code first (more precise), fall back to description
+        matched_oi: OrderItem | None = (
+            by_item_code.get(item_code)
+            or by_description.get(desc)
+        )
+
+        if not matched_oi:
+            logger.warning(
+                "confirm_grn: GRN line '%s' (code=%r) could not be matched "
+                "to any OrderItem for order %s — skipped",
+                desc, item_code, order_uuid,
+            )
+            continue
+
+        qty_received: float = float(line.get("qty_received") or 0)
+        qty_ordered:  float = float(matched_oi.quantity_requested)
+
+        quantity_accepted: float = qty_received
+        quantity_rejected: float = max(0.0, qty_ordered - qty_received)
+
+        grn_item = GRNItem(
+            grn_id            = grn.id,
+            order_item_id     = matched_oi.id,
+            quantity_accepted = quantity_accepted,
+            quantity_rejected = quantity_rejected,
+            rejection_reason  = (
+                f"Short delivery: ordered {qty_ordered}, received {qty_received}"
+                if quantity_rejected > 0 else None
+            ),
+        )
+        db.add(grn_item)
+
+    logger.info(
+        "confirm_grn: created grn_items for GRN %s (order %s, %d lines processed)",
+        grn.id, order_uuid, len(grn_line_items),
+    )
 async def _get_grn_with_uploader(db: AsyncSession, grn_id: uuid.UUID) -> GRN:
     """Fetch a single GRN with the uploader relationship eager-loaded."""
     result = await db.execute(
@@ -318,6 +413,7 @@ async def confirm_grn(
     )
     db.add(etims_inv)
     await db.flush()
+    await _create_grn_items(db, grn, confirmed_dict)
 
     await db.commit()
 
