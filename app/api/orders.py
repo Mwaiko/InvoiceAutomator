@@ -11,12 +11,14 @@ DELETE /orders/{id}/permanent     – permanently delete an order (draft/cancell
 GET    /orders/{id}/grns          – list GRNs linked to this order (via lpo_number)
 """
 import uuid
+from datetime import date
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import PaginationDep, get_current_user, get_db
 from app.core.exceptions import NotFoundError
+from app.db.models.finance import Expense
 from app.db.models.grn import GRN
 from app.db.models.items import Items, OrderItem as OrderItemModel, OrderItemSource
 from app.db.models.order import Order, OrderStatus, OrderType
@@ -39,17 +41,27 @@ async def _build_order_items(
     db: AsyncSession,
     order_id: uuid.UUID,
     items: list[OrderItemSchema],
-) -> list[OrderItemModel]:
+    order_number: str,
+    expense_date: date | None = None,
+    created_by_id: uuid.UUID | None = None,
+    category_id: uuid.UUID | None = None,
+) -> tuple[list[OrderItemModel], list[Expense]]:
     """
     Convert schema line items → ORM OrderItem rows.
 
-    - If item_id is provided, validates it exists in the Items catalogue and
-      uses it as product_id.
-    - If item_id is omitted, looks up the catalogue by itemcd (item_code) as a
-      fallback.  If still not found, raises 422 so the caller knows which line
-      is broken rather than silently dropping it.
+    Returns a tuple of (orm_items, expenses):
+      - orm_items: normalised OrderItem rows for every line
+      - expenses:  Expense rows auto-created for lines where source == outsourced
+
+    Catalogue resolution:
+      - If item_id is provided, validates it exists in the Items catalogue.
+      - If item_id is omitted, falls back to matching by itemcd (item_code).
+      - Raises 422 if neither resolves, so the caller knows which line is broken.
     """
     orm_items: list[OrderItemModel] = []
+    expenses:  list[Expense]        = []
+
+    resolved_date = expense_date or date.today()
 
     for idx, line in enumerate(items, start=1):
         product_id: uuid.UUID | None = None
@@ -88,11 +100,28 @@ async def _build_order_items(
                 product_id=product_id,
                 quantity_requested=line.qty_ordered,
                 unit_price=line.unit_price,
-                source=line.source,  # ← use what the client sent
+                source=line.source,
             )
         )
 
-    return orm_items
+        # ── 3. Auto-create expense for outsourced lines ───────────────────────
+        if line.source == OrderItemSource.outsourced:
+            net = round(line.qty_ordered * line.unit_price, 2)
+            expenses.append(
+                Expense(
+                    amount=net,
+                    description=(
+                        f"[Outsourced] {line.description} "
+                        f"(order {order_number}, qty {line.qty_ordered} × {line.unit_price})"
+                    ),
+                    expense_date=resolved_date,
+                    status="pending",
+                    category_id=category_id,
+                    created_by_id=created_by_id,
+                )
+            )
+
+    return orm_items, expenses
 
 
 def _items_to_jsonb(items: list[OrderItemSchema]) -> list[dict]:
@@ -143,10 +172,20 @@ async def create_order(
     # Flush to get the order.id before creating child rows
     await db.flush()
 
-    # Persist normalised OrderItem rows
+    # Persist normalised OrderItem rows + auto-expenses for outsourced lines
     if body.items:
-        orm_items = await _build_order_items(db, order.id, body.items)
+        order_date = date.fromisoformat(body.order_date) if body.order_date else None
+        orm_items, expenses = await _build_order_items(
+            db,
+            order_id=order.id,
+            items=body.items,
+            order_number=order.order_number,
+            expense_date=order_date,
+            created_by_id=user.id,
+        )
         db.add_all(orm_items)
+        if expenses:
+            db.add_all(expenses)
 
     await db.commit()
     await db.refresh(order)
@@ -227,14 +266,34 @@ async def update_order(
         existing_items = await db.execute(
             select(OrderItemModel).where(OrderItemModel.order_id == order_id)
         )
-        for old in existing_items.scalars().all():
-            await db.delete(old)
+        for old_item in existing_items.scalars().all():
+            await db.delete(old_item)
+
+        # Delete any outsourced expenses previously auto-created for this order
+        # They are identified by the "[Outsourced]" + order_number tag in description
+        existing_expenses = await db.execute(
+            select(Expense).where(
+                Expense.description.like(f"%order {order.order_number},%")
+            )
+        )
+        for old_exp in existing_expenses.scalars().all():
+            await db.delete(old_exp)
 
         await db.flush()  # ensure deletes land before inserts
 
         if body.items:
-            new_orm_items = await _build_order_items(db, order_id, body.items)
+            order_date = date.fromisoformat(order.order_date) if order.order_date else None
+            new_orm_items, new_expenses = await _build_order_items(
+                db,
+                order_id=order_id,
+                items=body.items,
+                order_number=order.order_number,
+                expense_date=order_date,
+                created_by_id=_user.id if hasattr(_user, "id") else None,
+            )
             db.add_all(new_orm_items)
+            if new_expenses:
+                db.add_all(new_expenses)
 
     await db.commit()
     await db.refresh(order)
