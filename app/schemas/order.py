@@ -22,7 +22,7 @@ class OrderItem(BaseModel):
     qty_ordered: float            = Field(..., gt=0)
     unit_price:  float            = Field(..., ge=0)
     net_amount:  float            = 0.0
-    source:      OrderItemSource  = OrderItemSource.manual  # ← NEW
+    source:      OrderItemSource  = OrderItemSource.farm  # ← NEW
 
 
 # ── Create ────────────────────────────────────────────────────────────────────
