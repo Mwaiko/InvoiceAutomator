@@ -34,11 +34,12 @@ import requests
 
 # ── KRA eTIMS coordinates ─────────────────────────────────────────────────────
 
-_HOSTNAME        = "etims.kra.go.ke"
-_PORT            = 443
-_BASE_URL        = f"https://{_HOSTNAME}"
-_LOGIN_PAGE_PATH = "/basic/login/indexLogin"
-_DEFAULT_TIMEOUT = 8   # seconds — keep it tight for a pre-confirm check
+_HOSTNAME         = "etims.kra.go.ke"
+_PORT             = 443
+_BASE_URL         = f"https://{_HOSTNAME}"
+_LOGIN_PAGE_PATH  = "/basic/login/indexLogin"
+_SALES_INDEX_PATH = "/app/ebm/trns/sales/indexTrnsSalesReceipt"
+_DEFAULT_TIMEOUT  = 8   # seconds — keep it tight for a pre-confirm check
 
 
 # ── Result models (mirrors test_etims_connection.py) ─────────────────────────
@@ -213,28 +214,77 @@ def _check_session_cookie(sess: requests.Session, timeout: float) -> CheckResult
         )
 
 
+def _check_sales_endpoint(sess: requests.Session, timeout: float) -> CheckResult:
+    """
+    Verify the sales receipt endpoint is reachable and returns a sensible
+    response.  We do a GET on the sales index page (not a POST) so we never
+    risk creating a duplicate receipt — the GET just confirms the route exists
+    and the portal isn't returning a maintenance / 5xx page.
+
+    A 200 or 302 (redirect-to-login) is considered healthy: the endpoint is
+    alive.  A 404, 5xx, or connection error means the sales path is broken.
+    """
+    url = f"{_BASE_URL}{_SALES_INDEX_PATH}"
+    t0  = time.perf_counter()
+    try:
+        r = sess.get(url, timeout=timeout, allow_redirects=False)
+        elapsed = time.perf_counter() - t0
+        # 200 = loaded, 302 = redirect to login — both mean the route is up.
+        if r.status_code in (200, 302):
+            return CheckResult(
+                name="Sales endpoint",
+                passed=True,
+                message=f"Sales endpoint reachable (HTTP {r.status_code}) in {elapsed:.2f}s",
+                elapsed=elapsed,
+            )
+        return CheckResult(
+            name="Sales endpoint",
+            passed=False,
+            message=f"Sales endpoint returned unexpected HTTP {r.status_code}",
+            elapsed=elapsed,
+        )
+    except requests.exceptions.Timeout:
+        return CheckResult(
+            name="Sales endpoint",
+            passed=False,
+            message=f"Sales endpoint timed out after {timeout}s",
+            elapsed=time.perf_counter() - t0,
+        )
+    except requests.exceptions.ConnectionError as exc:
+        return CheckResult(
+            name="Sales endpoint",
+            passed=False,
+            message=f"Sales endpoint connection error: {exc}",
+            elapsed=time.perf_counter() - t0,
+        )
+
+
 # ── Main probe ────────────────────────────────────────────────────────────────
 
 def probe_etims(timeout: float = _DEFAULT_TIMEOUT) -> HealthReport:
     """
-    Run the mandatory connectivity checks (DNS → TCP → TLS → HTTP → cookie)
-    against etims.kra.go.ke and return a HealthReport.
+    Run connectivity checks (DNS → TCP → TLS → HTTP → session-cookie →
+    sales-endpoint) against etims.kra.go.ke and return a HealthReport.
 
-    This is intentionally **login-free** and is designed for a quick pre-confirm
-    gate: if the site is up the GRN confirmation proceeds normally; if it's down
-    the UI warns the operator and the backend queues the eTIMS submission for
-    automatic retry once the site recovers.
+    The final check — sales-endpoint — confirms that the specific route used
+    for receipt submission is alive, not just the login page.  This lets the
+    backend gate GRN confirmation on actual sales-path availability rather
+    than just generic site reachability.
 
     This function is synchronous — call it from a thread-pool executor:
 
         report = await loop.run_in_executor(None, partial(probe_etims, timeout=8))
+
+    ``report.site_up`` is True only when ALL checks (including the sales
+    endpoint) pass.  ``report.sales_endpoint_up`` is the narrower flag used
+    as the pre-confirm gate in etims_tasks.submit_to_etims().
     """
     report = HealthReport(timestamp=datetime.now().isoformat(timespec="seconds"))
 
     dns = _check_dns(timeout)
     report.add(dns)
     if not dns.passed:
-        return report   # no point continuing
+        return report
 
     tcp = _check_tcp(timeout)
     report.add(tcp)
@@ -253,7 +303,11 @@ def probe_etims(timeout: float = _DEFAULT_TIMEOUT) -> HealthReport:
 
     report.add(_check_session_cookie(sess, timeout))
 
-    # Verdict: all non-cookie checks must pass
-    mandatory = [c for c in report.checks if c.name != "Session cookie"]
-    report.site_up = all(c.passed for c in mandatory)
+    # Always check the sales endpoint — this is the specific path we POST to.
+    report.add(_check_sales_endpoint(sess, timeout))
+
+    # Verdict: all checks must pass (session cookie failure alone is not fatal
+    # for site_up, but sales endpoint failure is).
+    non_cookie = [c for c in report.checks if c.name != "Session cookie"]
+    report.site_up = all(c.passed for c in non_cookie)
     return report

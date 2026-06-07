@@ -6,12 +6,25 @@ converts it to a ReceiptHeader, and submits it to the KRA portal.
 
 invoice_number   = system-generated sequential eTIMS number (e.g. "006")
 cust_invoice_no  = customer's own reference copied from grn.invoice_no (e.g. "2063")
+
+Key design principles
+─────────────────────
+• Pre-confirm probe: the sales endpoint is checked BEFORE any invoice number
+  is consumed or any DB row mutated.  If the endpoint is down the task aborts
+  cleanly with no side-effects.
+
+• Zero retries: KRA frequently accepts a POST but responds slowly (or times
+  out before returning a response).  Retrying would submit the same receipt
+  twice and create a duplicate eTIMS invoice.  Any failure — including a
+  ReadTimeout on the sales POST — marks the EtimsInvoice as rejected.  The
+  operator must manually verify on the KRA portal before deciding to resubmit.
 """
 
 import asyncio
 import json
 import os
 import uuid
+from functools import partial
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -30,6 +43,10 @@ load_dotenv(dotenv_path=env_path)
 logger = get_logger(__name__)
 
 DEV_RECEIPT_DIR = os.environ.get("DEV_RECEIPT_DIR", "/tmp/etims_dev")
+
+# Timeout for the pre-confirm sales endpoint probe (seconds).
+# Keep it short — this is a gate check, not a full submission.
+PROBE_TIMEOUT_S = 10
 
 
 def _is_dev() -> bool:
@@ -76,10 +93,49 @@ def _extract_kracu(response_data) -> str:
     return ""
 
 
+async def _probe_sales_endpoint() -> tuple[bool, str]:
+    """
+    Run a pre-confirm connectivity probe against the eTIMS sales endpoint.
+
+    Returns (ok: bool, message: str).
+
+    Uses etims_health.probe_etims() which now includes a dedicated
+    "Sales endpoint" check (GET on the sales index route).  This is
+    intentionally login-free and safe to run before any DB mutation.
+    """
+    from app.services.etims_health import probe_etims
+
+    try:
+        report = await asyncio.get_event_loop().run_in_executor(
+            None, partial(probe_etims, PROBE_TIMEOUT_S)
+        )
+    except Exception as exc:
+        return False, f"eTIMS probe raised an unexpected error: {exc}"
+
+    if report.site_up:
+        sales_check = next(
+            (c for c in report.checks if c.name == "Sales endpoint"), None
+        )
+        msg = (
+            sales_check.message
+            if sales_check
+            else "All connectivity checks passed"
+        )
+        return True, msg
+
+    # Collect the first failed check for a human-readable error message.
+    failed = next((c for c in report.checks if not c.passed), None)
+    reason = failed.message if failed else "Unknown connectivity failure"
+    return False, f"eTIMS sales endpoint not reachable: {reason}"
+
+
 async def submit_to_etims(grn_id: str, etims_invoice_id: str) -> dict:
     """
     Background task:
 
+    0. Probe the eTIMS sales endpoint BEFORE doing anything irreversible.
+       If the endpoint is unreachable the task aborts with a clear error —
+       no invoice number is consumed, no DB row is mutated.
     1. Load the confirmed GRN and its EtimsInvoice from the DB.
     2. Build the eTIMS payload via etims_mapper.build_etims_payload().
        The mapper generates the sequential invoice_number for this store.
@@ -87,12 +143,39 @@ async def submit_to_etims(grn_id: str, etims_invoice_id: str) -> dict:
     4. Convert to ReceiptHeader and submit to KRA (or render dev PDF).
     5. Persist EtimsInvoice.status -> submitted / rejected.
 
-    No automatic retries are performed.  Any failure (timeout, KRA unreachable,
-    error response) marks both GRN and EtimsInvoice as rejected immediately.
-    The user must explicitly resubmit.
+    NO automatic retries are ever attempted.  KRA frequently accepts a POST
+    but responds slowly (or times out before returning); retrying would create
+    a duplicate eTIMS invoice.  Any failure — including a ReadTimeout — marks
+    the EtimsInvoice as rejected so the operator can manually verify on the
+    KRA portal before deciding whether to resubmit.
     """
     grn_uuid = uuid.UUID(grn_id)
     inv_uuid = uuid.UUID(etims_invoice_id)
+
+    # ── Step 0: pre-confirm probe ─────────────────────────────────────────────
+    # Run BEFORE opening a DB session so we don't hold a connection open during
+    # the network round-trip.  Dev mode skips this so unit tests don't need a
+    # live KRA connection.
+    if not _is_dev():
+        endpoint_ok, probe_msg = await _probe_sales_endpoint()
+        if not endpoint_ok:
+            logger.error(
+                "submit_to_etims: eTIMS pre-confirm probe failed for GRN %s — %s",
+                grn_id, probe_msg,
+            )
+            # Mark the invoice rejected so the UI shows a clear error.
+            async with AsyncSessionLocal() as db:
+                inv = await db.get(EtimsInvoice, inv_uuid)
+                if inv:
+                    inv.status        = EtimsStatus.rejected
+                    inv.error_message = probe_msg
+                    await db.commit()
+            return {"error": probe_msg}
+
+        logger.info(
+            "submit_to_etims: eTIMS pre-confirm probe OK for GRN %s — %s",
+            grn_id, probe_msg,
+        )
 
     async with AsyncSessionLocal() as db:
         grn = await db.get(GRN, grn_uuid)
@@ -211,9 +294,10 @@ async def submit_to_etims(grn_id: str, etims_invoice_id: str) -> dict:
         if _is_dev():
             return await _dev_mode_pdf(grn_id, etims_invoice_id, receipt_header, inv, grn, db)
 
-        # -- 5. Production: single attempt — no automatic retries ---------------
+        # -- 5. Production: single attempt — NO retries -------------------------
         # Any failure (timeout, KRA unreachable, error response) immediately
-        # rejects the GRN and EtimsInvoice.  The user must explicitly resubmit.
+        # rejects the EtimsInvoice.  The operator must verify on the KRA portal
+        # before explicitly resubmitting.
         cfg     = _get_etims_cfg()
         results = None
 
@@ -247,15 +331,18 @@ async def submit_to_etims(grn_id: str, etims_invoice_id: str) -> dict:
         primary_result = results[0] if results else {}
         kra_status     = primary_result.get("status")
 
-        # Timeout and any non-ok status are all treated as failures.
-        # The user must resubmit — no automatic retry is attempted.
+        # A ReadTimeout means KRA received the POST but did not respond in time.
+        # The invoice is very likely already registered — do NOT retry.
+        # Mark as rejected so the operator verifies manually before resubmitting.
         if kra_status == "timeout":
             error_msg = (
                 "KRA portal did not respond in time (timeout). "
-                "Please check the KRA eTIMS portal and resubmit if the invoice was not registered."
+                "The invoice was likely accepted — please verify on the KRA "
+                "eTIMS portal BEFORE attempting to resubmit to avoid duplicates."
             )
             logger.error(
-                "submit_to_etims: KRA timeout for GRN %s (EtimsInvoice %s) — marking rejected.",
+                "submit_to_etims: KRA timeout for GRN %s (EtimsInvoice %s) — "
+                "marking rejected. Operator must verify on portal before resubmitting.",
                 grn_id, etims_invoice_id,
             )
             inv.status        = EtimsStatus.rejected

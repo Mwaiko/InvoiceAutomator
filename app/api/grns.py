@@ -58,12 +58,7 @@ async def _create_grn_items(
     grn: GRN,
     confirmed_data: dict,
 ) -> None:
-    """
-    Match each confirmed GRN line item to its OrderItem and write GRNItem rows.
-
-    quantity_accepted = qty_received from the GRN (what arrived)
-    quantity_rejected = order quantity_requested - qty_received (the shortfall)
-    """
+    
     order_id_raw = confirmed_data.get("order_id")
     if not order_id_raw:
         logger.info(
@@ -79,7 +74,6 @@ async def _create_grn_items(
         logger.warning("confirm_grn: invalid order_id %r — skipping grn_items", order_id_raw)
         return
 
-    # Load all OrderItems for the order, with their product eagerly loaded
     result = await db.execute(
         select(OrderItem)
         .options(joinedload(OrderItem.product))

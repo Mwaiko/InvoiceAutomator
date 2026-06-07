@@ -24,7 +24,6 @@ from typing import Optional
 
 import requests
 from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 
 log = logging.getLogger(__name__)
 
@@ -37,10 +36,9 @@ LOGIN_PAGE_PATH = "/basic/login/indexLogin"   # GET first — seeds session cook
 LOGIN_PATH      = "/basic/login/loginProc"    # POST with mbrId / mbrPwd
 SALES_PATH      = "/app/ebm/trns/sales/insertTrnsSalesReceipt"
 
-# Retry / timeout knobs
+# Timeout only — NO transport-level retries on POST endpoints.
+# KRA often accepts the request but responds slowly; retrying creates duplicates.
 TIMEOUT_S       = 30
-MAX_RETRIES     = 3
-BACKOFF_FACTOR  = 1.5   # waits 1.5 s, 3 s, 4.5 s between retries
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -166,16 +164,17 @@ class ReceiptHeader:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _make_session() -> requests.Session:
+    """
+    Return a plain requests.Session with NO automatic retries.
+
+    Retrying POST requests to KRA is dangerous — the portal frequently accepts
+    the submission but responds slowly (or times out), so a retry would submit
+    the same receipt twice and create a duplicate eTIMS invoice.  All retry
+    decisions must be made explicitly at the application level.
+    """
     sess = requests.Session()
-    retry = Retry(
-        total=MAX_RETRIES,
-        read=0,
-        backoff_factor=BACKOFF_FACTOR,
-        status_forcelist=[429, 502, 503, 504],  # removed 500
-        allowed_methods=["POST", "GET"],
-        raise_on_status=False,
-    )
-    adapter = HTTPAdapter(max_retries=retry)
+    # Mount a plain adapter with zero retries on both schemes.
+    adapter = HTTPAdapter(max_retries=0)
     sess.mount("https://", adapter)
     sess.mount("http://",  adapter)
 
