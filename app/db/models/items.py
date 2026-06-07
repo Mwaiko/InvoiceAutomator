@@ -20,9 +20,9 @@ from app.db.base import Base, TimestampMixin, UUIDMixin
 
 # ── Source enum ───────────────────────────────────────────────────────────────
 class OrderItemSource(str, enum.Enum):
-    manual   = "manual"
-    imported = "imported"
-    system   = "system"
+    farm       = "farm"
+    outsourced = "outsourced"
+    mixed      = "mixed"
 
 
 # ── 1. Items (master catalogue) ───────────────────────────────────────────────
@@ -77,14 +77,12 @@ class OrderItem(UUIDMixin, TimestampMixin, Base):
     order: Mapped["Order"] = relationship("Order", back_populates="order_items")  # type: ignore[name-defined]
 
     # ── Product reference ─────────────────────────────────────────────────────
-    # FIX: was ForeignKey("products.id") — the table is "items"
     product_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("items.id", ondelete="RESTRICT"),
         nullable=False,
         index=True,
     )
-    # FIX: was relationship("Item", ...) — the class name is "Items"
     product: Mapped[Items] = relationship("Items", back_populates="order_items")
 
     # ── Quantities & pricing ──────────────────────────────────────────────────
@@ -95,7 +93,7 @@ class OrderItem(UUIDMixin, TimestampMixin, Base):
     source: Mapped[OrderItemSource] = mapped_column(
         Enum(OrderItemSource, name="orderitemsource"),
         nullable=False,
-        default=OrderItemSource.manual,
+        default=OrderItemSource.farm,
     )
 
     # ── Child receipts ────────────────────────────────────────────────────────
@@ -107,7 +105,7 @@ class OrderItem(UUIDMixin, TimestampMixin, Base):
     @property
     def associated_product_name(self) -> str:
         return self.product.product_name if self.product else ""
-    
+
     @property
     def net_amount(self) -> float:
         return float(self.quantity_requested) * float(self.unit_price)
