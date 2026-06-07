@@ -29,6 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import CurrentUser, PaginationDep, get_db
 from app.core.exceptions import GRNLockedError, NotFoundError
 from app.db.models.grn import GRN, GRNStatus
+from app.db.models.items import OrderItem,GRNItem,Items
 from app.db.models.etims_invoice import EtimsInvoice, EtimsStatus,PaymentStatus
 from app.schemas.grn import GRNConfirmRequest, GRNRejectRequest, GRNResponse
 from app.services import file_storage, grn_extractor
