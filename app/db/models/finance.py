@@ -95,6 +95,11 @@ class Expense(UUIDMixin, TimestampMixin, Base):
 
     Status choices (validate in schema/service):
       'paid' | 'pending' | 'cancelled'
+
+    Source choices:
+      'farm'       – produce grown / raised in-house on the farm
+      'outsourced' – produce purchased from an external supplier
+      None         – non-produce expenses (wages, fuel, utilities, etc.)
     """
 
     __tablename__ = "expenses"
@@ -129,6 +134,10 @@ class Expense(UUIDMixin, TimestampMixin, Base):
     description:  Mapped[str]       = mapped_column(Text,           nullable=False)
     expense_date: Mapped[date]      = mapped_column(Date,           nullable=False)
     status:       Mapped[str]       = mapped_column(String(20),     nullable=False, default="paid", server_default="paid")
+
+    # ── Source: which supply channel generated this cost ──────────────────────
+    # 'farm' | 'outsourced' | None (for non-produce overheads)
+    source: Mapped[str | None] = mapped_column(String(20), nullable=True, index=True)
 
     # ── KRA & receipt ─────────────────────────────────────────────────────────
     is_kra_declared: Mapped[bool]       = mapped_column(Boolean,        default=False, nullable=False, server_default="false")

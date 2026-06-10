@@ -5,7 +5,7 @@ Pydantic request/response schemas for:
   Account · ExpenseCategory · Expense · AccountTransaction
 
 Also contains read-only report shapes used by finance_service.py:
-  ProfitReport · BranchProfitLine · AuditExportRow
+  ProfitReport · BranchProfitLine · AuditExportRow · DailyFulfillmentMetrics
 """
 
 import uuid
@@ -82,6 +82,16 @@ class ExpenseCreate(BaseModel):
     is_kra_declared: bool              = False
     receipt_path:    str | None        = None
 
+    # ── Supply-channel tag ────────────────────────────────────────────────────
+    # 'farm'       – produce grown in-house
+    # 'outsourced' – produce bought from an external supplier
+    # None         – non-produce expenses (wages, fuel, utilities, etc.)
+    source: str | None = Field(
+        default=None,
+        pattern="^(farm|outsourced)$",
+        description="Supply channel: 'farm', 'outsourced', or null for overhead expenses.",
+    )
+
     # ── Optional: when paying from a specific account in one shot ─────────────
     # If provided, finance_service.record_expense_payment() will also create an
     # AccountTransaction so the account balance is updated atomically.
@@ -98,6 +108,7 @@ class ExpenseUpdate(BaseModel):
     description:     str     | None   = None
     expense_date:    date    | None   = None
     status:          str     | None   = Field(None, pattern="^(paid|pending|cancelled)$")
+    source:          str     | None   = Field(None, pattern="^(farm|outsourced)$")
     is_kra_declared: bool    | None   = None
     receipt_path:    str     | None   = None
 
@@ -112,6 +123,7 @@ class ExpenseResponse(BaseModel):
     description:     str
     expense_date:    date
     status:          str
+    source:          str | None
     is_kra_declared: bool
     receipt_path:    str | None
 
@@ -156,6 +168,7 @@ class KRAExportRow(BaseModel):
     description:     str
     category:        str | None
     amount:          float
+    source:          str | None
     receipt_path:    str | None
     business_name:   str | None
     branch_name:     str | None
@@ -216,22 +229,46 @@ class AccountTransactionResponse(BaseModel):
 # 5. PROFIT / ANALYTICS REPORT SHAPES (read-only)
 # ═══════════════════════════════════════════════════════════════════════════════
 
+class SourceExpenseSplit(BaseModel):
+    """
+    Expense breakdown by supply channel for a single branch or the whole business.
+    Used inside BranchProfitLine and ProfitReport.
+    """
+    farm:       float = 0.0   # sum of expenses where source = 'farm'
+    outsourced: float = 0.0   # sum of expenses where source = 'outsourced'
+    other:      float = 0.0   # sum of expenses where source IS NULL (overheads)
+
+    @property
+    def total(self) -> float:
+        return self.farm + self.outsourced + self.other
+
+
 class BranchProfitLine(BaseModel):
     """
-    Profit/loss breakdown for a single branch.
+    Profit/loss breakdown for a single branch, split by supply channel.
 
-    revenue          = sum of confirmed GRN order_totals for that branch
-    expenses         = sum of expenses WHERE branch_id = this branch
-    gross_profit     = revenue - expenses
-    expense_items    = list of expense summaries for drill-down
+    revenue              = sum of confirmed GRN order_totals for that branch
+    farm_expenses        = expenses WHERE source = 'farm'
+    outsourced_expenses  = expenses WHERE source = 'outsourced'
+    other_expenses       = expenses WHERE source IS NULL (branch overheads)
+    total_expenses       = farm + outsourced + other
+    gross_profit         = revenue - total_expenses
     """
-    branch_id:       uuid.UUID | None
-    branch_name:     str
-    business_name:   str | None
-    revenue:         float
-    expenses:        float
-    gross_profit:    float
-    expense_count:   int
+    branch_id:           uuid.UUID | None
+    branch_name:         str
+    business_name:       str | None
+    revenue:             float
+    farm_expenses:       float
+    outsourced_expenses: float
+    other_expenses:      float
+    total_expenses:      float
+    gross_profit:        float
+    expense_count:       int
+
+    # Legacy alias kept for backwards-compat with existing API consumers
+    @property
+    def expenses(self) -> float:
+        return self.total_expenses
 
 
 class ProfitReport(BaseModel):
@@ -239,15 +276,60 @@ class ProfitReport(BaseModel):
     Full profitability report as returned by GET /finance/profit-report.
 
     period_start / period_end are the filters applied.
-    general_expenses are those with branch_id IS NULL (overheads: wages, rent …).
-    net_profit = total_revenue - total_branch_expenses - general_expenses
+
+    Expense columns are split by source so you can see the farm-vs-outsourced
+    cost contribution at a glance:
+      total_farm_expenses       = all paid expenses where source = 'farm'
+      total_outsourced_expenses = all paid expenses where source = 'outsourced'
+      total_other_expenses      = all paid expenses where source IS NULL
+
+    general_expenses are those with branch_id IS NULL (overheads: wages, rent …),
+    further split by source.
+
+    net_profit = total_revenue - total_expenses
     """
-    period_start:       date | None
-    period_end:         date | None
-    total_revenue:      float
-    total_expenses:     float          # branch-linked + general
-    branch_expenses:    float
-    general_expenses:   float          # branch_id IS NULL
-    net_profit:         float
-    branches:           list[BranchProfitLine]
-    generated_at:       datetime
+    period_start:              date | None
+    period_end:                date | None
+    total_revenue:             float
+    total_expenses:            float          # all paid expenses in period
+    branch_expenses:           float          # expenses WHERE branch_id IS NOT NULL
+    general_expenses:          float          # expenses WHERE branch_id IS NULL
+    total_farm_expenses:       float          # across all branches + general
+    total_outsourced_expenses: float          # across all branches + general
+    total_other_expenses:      float          # non-sourced overheads
+    net_profit:                float
+    branches:                  list[BranchProfitLine]
+    generated_at:              datetime
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 6. DAILY FULFILLMENT DASHBOARD (read-only)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class SourceFulfillmentLine(BaseModel):
+    """
+    Fulfillment stats for a single supply channel on a given day.
+
+    requested  = total units ordered (OrderItem.quantity_requested)
+    accepted   = total units accepted on GRNs (GRNItem.quantity_accepted)
+    rejected   = total units rejected on GRNs (GRNItem.quantity_rejected)
+    rate       = accepted / requested × 100  (0–100 %)
+    """
+    source:    str    # 'farm' | 'outsourced'
+    requested: float
+    accepted:  float
+    rejected:  float
+    rate:      float  # acceptance rate as a percentage
+
+
+class DailyFulfillmentMetrics(BaseModel):
+    """
+    Returned by GET /finance/daily-dashboard?target_date=YYYY-MM-DD.
+
+    farm and outsourced are the per-channel breakdowns.
+    overall is the combined view across all channels.
+    """
+    target_date: date
+    farm:        SourceFulfillmentLine
+    outsourced:  SourceFulfillmentLine
+    overall:     SourceFulfillmentLine

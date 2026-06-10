@@ -38,6 +38,7 @@ _HOSTNAME         = "etims.kra.go.ke"
 _PORT             = 443
 _BASE_URL         = f"https://{_HOSTNAME}"
 _LOGIN_PAGE_PATH  = "/basic/login/indexLogin"
+_LOGIN_POST_PATH  = "/basic/login/loginProc"
 _SALES_INDEX_PATH = "/app/ebm/trns/sales/indexTrnsSalesReceipt"
 _DEFAULT_TIMEOUT  = 8   # seconds — keep it tight for a pre-confirm check
 
@@ -214,27 +215,143 @@ def _check_session_cookie(sess: requests.Session, timeout: float) -> CheckResult
         )
 
 
+def _check_login(
+    sess: requests.Session,
+    username: str,
+    password: str,
+    timeout: float,
+) -> CheckResult:
+    """
+    Authenticate against /basic/login/loginProc using the same two-step flow
+    as fill_kra.login():
+
+      1. GET  /basic/login/indexLogin  → seeds JSESSIONID + BIGip cookies
+      2. POST /basic/login/loginProc   → submits mbrId / mbrPwd
+
+    A successful login is confirmed by the presence of JSESSIONID in the
+    session cookies AND resultCd == "000" in the JSON response body.
+    """
+    t0 = time.perf_counter()
+
+    # Step 1: seed the session cookie (same as fill_kra.login step 1)
+    seed_url = f"{_BASE_URL}{_LOGIN_PAGE_PATH}"
+    try:
+        r0 = sess.get(seed_url, timeout=timeout)
+        if r0.status_code != 200:
+            return CheckResult(
+                name="eTIMS login",
+                passed=False,
+                message=f"Login page returned HTTP {r0.status_code} (expected 200)",
+                elapsed=time.perf_counter() - t0,
+            )
+    except requests.exceptions.Timeout:
+        return CheckResult(
+            name="eTIMS login",
+            passed=False,
+            message=f"Login page timed out after {timeout}s",
+            elapsed=time.perf_counter() - t0,
+        )
+    except requests.exceptions.ConnectionError as exc:
+        return CheckResult(
+            name="eTIMS login",
+            passed=False,
+            message=f"Login page connection error: {exc}",
+            elapsed=time.perf_counter() - t0,
+        )
+
+    # Step 2: POST credentials (mirrors fill_kra.login step 2 exactly)
+    login_url = f"{_BASE_URL}{_LOGIN_POST_PATH}"
+    hdrs = {
+        "Content-Type":   "application/x-www-form-urlencoded;charset=UTF-8",
+        "Accept":         "application/json, text/javascript, */*; q=0.01",
+        "Origin":         _BASE_URL,
+        "Referer":        seed_url,
+        "Sec-Fetch-Dest": "empty",
+        "Sec-Fetch-Mode": "cors",
+        "Sec-Fetch-Site": "same-origin",
+    }
+    try:
+        r = sess.post(
+            login_url,
+            data={"mbrId": username, "mbrPwd": password},
+            headers=hdrs,
+            timeout=timeout,
+        )
+    except requests.exceptions.Timeout:
+        return CheckResult(
+            name="eTIMS login",
+            passed=False,
+            message=f"Login POST timed out after {timeout}s",
+            elapsed=time.perf_counter() - t0,
+        )
+    except requests.exceptions.ConnectionError as exc:
+        return CheckResult(
+            name="eTIMS login",
+            passed=False,
+            message=f"Login POST connection error: {exc}",
+            elapsed=time.perf_counter() - t0,
+        )
+
+    elapsed = time.perf_counter() - t0
+
+    # JSESSIONID must be present after a successful login
+    if "JSESSIONID" not in sess.cookies:
+        return CheckResult(
+            name="eTIMS login",
+            passed=False,
+            message="Login POST succeeded but no JSESSIONID cookie — check credentials",
+            elapsed=elapsed,
+        )
+
+    # Check KRA's own result code in the JSON body
+    try:
+        body = r.json()
+        rc = str(body.get("resultCd", "000")).strip()
+        if rc != "000":
+            return CheckResult(
+                name="eTIMS login",
+                passed=False,
+                message=f"KRA rejected login: resultCd={rc} msg={body.get('resultMsg', 'n/a')}",
+                elapsed=elapsed,
+            )
+    except ValueError:
+        pass  # Non-JSON body — JSESSIONID presence is sufficient evidence
+
+    jsession_prefix = sess.cookies["JSESSIONID"][:8]
+    return CheckResult(
+        name="eTIMS login",
+        passed=True,
+        message=f"Login OK — JSESSIONID={jsession_prefix}… in {elapsed:.2f}s",
+        elapsed=elapsed,
+    )
+
+
 def _check_sales_endpoint(sess: requests.Session, timeout: float) -> CheckResult:
     """
-    Verify the sales receipt endpoint is reachable and returns a sensible
-    response.  We do a GET on the sales index page (not a POST) so we never
-    risk creating a duplicate receipt — the GET just confirms the route exists
-    and the portal isn't returning a maintenance / 5xx page.
+    Verify the sales receipt endpoint is reachable with an authenticated
+    session.  The session must already be logged in (via _check_login) before
+    calling this — otherwise the portal returns 551 for unauthenticated requests.
 
-    A 200 or 302 (redirect-to-login) is considered healthy: the endpoint is
-    alive.  A 404, 5xx, or connection error means the sales path is broken.
+    A 200 is the only fully-healthy response for an authenticated session.
+    A 302 (redirect back to login) means the session was not accepted.
     """
     url = f"{_BASE_URL}{_SALES_INDEX_PATH}"
     t0  = time.perf_counter()
     try:
         r = sess.get(url, timeout=timeout, allow_redirects=False)
         elapsed = time.perf_counter() - t0
-        # 200 = loaded, 302 = redirect to login — both mean the route is up.
-        if r.status_code in (200, 302):
+        if r.status_code == 200:
             return CheckResult(
                 name="Sales endpoint",
                 passed=True,
-                message=f"Sales endpoint reachable (HTTP {r.status_code}) in {elapsed:.2f}s",
+                message=f"Sales endpoint reachable (HTTP 200) in {elapsed:.2f}s",
+                elapsed=elapsed,
+            )
+        if r.status_code == 302:
+            return CheckResult(
+                name="Sales endpoint",
+                passed=False,
+                message="Sales endpoint redirected to login — session was not accepted",
                 elapsed=elapsed,
             )
         return CheckResult(
@@ -261,23 +378,37 @@ def _check_sales_endpoint(sess: requests.Session, timeout: float) -> CheckResult
 
 # ── Main probe ────────────────────────────────────────────────────────────────
 
-def probe_etims(timeout: float = _DEFAULT_TIMEOUT) -> HealthReport:
+def probe_etims(
+    timeout:  float = _DEFAULT_TIMEOUT,
+    username: Optional[str] = None,
+    password: Optional[str] = None,
+) -> HealthReport:
     """
     Run connectivity checks (DNS → TCP → TLS → HTTP → session-cookie →
-    sales-endpoint) against etims.kra.go.ke and return a HealthReport.
+    login → sales-endpoint) against etims.kra.go.ke and return a HealthReport.
 
-    The final check — sales-endpoint — confirms that the specific route used
-    for receipt submission is alive, not just the login page.  This lets the
-    backend gate GRN confirmation on actual sales-path availability rather
-    than just generic site reachability.
+    When ``username`` and ``password`` are supplied the probe performs a real
+    login (POST /basic/login/loginProc) before hitting the sales endpoint, which
+    is the only reliable way to confirm the authenticated sales path is healthy.
+    Without credentials the probe stops after the session-cookie check and
+    ``site_up`` reflects basic reachability only.
 
-    This function is synchronous — call it from a thread-pool executor:
+    Credentials should be passed from env-vars — never hard-coded:
 
-        report = await loop.run_in_executor(None, partial(probe_etims, timeout=8))
+        import os
+        from functools import partial
+        report = await loop.run_in_executor(
+            None,
+            partial(
+                probe_etims,
+                timeout=8,
+                username=os.environ.get("KRA_USERNAME"),
+                password=os.environ.get("KRA_PASSWORD"),
+            ),
+        )
 
-    ``report.site_up`` is True only when ALL checks (including the sales
-    endpoint) pass.  ``report.sales_endpoint_up`` is the narrower flag used
-    as the pre-confirm gate in etims_tasks.submit_to_etims().
+    ``report.site_up`` is True only when ALL executed checks pass (including
+    the authenticated sales-endpoint check when credentials are provided).
     """
     report = HealthReport(timestamp=datetime.now().isoformat(timespec="seconds"))
 
@@ -303,11 +434,31 @@ def probe_etims(timeout: float = _DEFAULT_TIMEOUT) -> HealthReport:
 
     report.add(_check_session_cookie(sess, timeout))
 
-    # Always check the sales endpoint — this is the specific path we POST to.
-    report.add(_check_sales_endpoint(sess, timeout))
+    # ── Authenticated checks (only when credentials are available) ────────────
+    if username and password:
+        login_result = _check_login(sess, username, password, timeout)
+        report.add(login_result)
+        if login_result.passed:
+            # Session is now authenticated — sales endpoint should return 200.
+            report.add(_check_sales_endpoint(sess, timeout))
+        else:
+            # Login failed: record the sales endpoint as skipped/failed.
+            report.add(CheckResult(
+                name="Sales endpoint",
+                passed=False,
+                message="Skipped — login did not succeed",
+            ))
+    else:
+        # No credentials supplied: connectivity-only probe.
+        # The unauthenticated GET returns 551, so we skip the sales check
+        # and note that credentials are required for the full probe.
+        report.add(CheckResult(
+            name="Sales endpoint",
+            passed=False,
+            message="Skipped — provide KRA_USERNAME / KRA_PASSWORD for authenticated check",
+        ))
 
-    # Verdict: all checks must pass (session cookie failure alone is not fatal
-    # for site_up, but sales endpoint failure is).
-    non_cookie = [c for c in report.checks if c.name != "Session cookie"]
-    report.site_up = all(c.passed for c in non_cookie)
+    # Verdict: all checks must pass.  A skipped sales endpoint is treated as
+    # failed so callers must supply credentials for a full green report.
+    report.site_up = all(c.passed for c in report.checks)
     return report

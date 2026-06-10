@@ -20,9 +20,14 @@ from app.db.models.finance import AccountTransaction
 from app.schemas.finance import (
     AccountTransactionCreate,
     AccountTransactionResponse,
+    DailyFulfillmentMetrics,
     ProfitReport,
 )
-from app.services.finance_service import get_profit_report, post_transaction
+from app.services.finance_service import (
+    get_daily_fulfillment_metrics,
+    get_profit_report,
+    post_transaction,
+)
 
 txn_router = APIRouter(prefix="/transactions", tags=["transactions"])
 finance_router = APIRouter(prefix="/finance", tags=["finance"])
@@ -131,3 +136,31 @@ async def profit_report(
     Omit date_from / date_to to see all-time figures.
     """
     return await get_profit_report(db, period_start=date_from, period_end=date_to)
+
+# ── Daily fulfillment dashboard (on /finance router) ─────────────────────────
+
+@finance_router.get("/daily-dashboard", response_model=DailyFulfillmentMetrics)
+async def daily_dashboard(
+    target_date: date = Query(default=None, description="Date to inspect (YYYY-MM-DD). Defaults to today."),
+    db:          AsyncSession = Depends(get_db),
+    _user=Depends(get_current_user),
+):
+    """
+    Per-channel fulfillment rates for a given day.
+
+    Compares what was ordered (OrderItem.quantity_requested) against what was
+    actually accepted/rejected on GRNs (GRNItem.quantity_accepted / rejected),
+    split by supply channel:
+
+      • farm       – in-house produce
+      • outsourced – purchased from external suppliers
+      • overall    – combined across both channels
+
+    The `target_date` filter matches Order.expected_date, so you see the
+    performance against the day's planned deliveries.
+
+    Omit target_date to default to today.
+    """
+    from datetime import date as _date
+    resolved_date = target_date or _date.today()
+    return await get_daily_fulfillment_metrics(db, resolved_date)

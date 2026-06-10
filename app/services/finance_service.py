@@ -6,13 +6,15 @@ Routes stay thin; they call these functions and return the result.
 
 Public surface
 ──────────────
-  record_expense_payment()   – atomically create Expense + AccountTransaction
-                               and update Account.current_balance
-  post_transaction()         – create a standalone AccountTransaction
-                               (e.g. inbound customer payment)
-  get_profit_report()        – per-branch and whole-business P&L
-  get_kra_audit_export()     – all KRA-declared expenses with receipt paths
-  reconcile_account_balance()– recompute current_balance from ledger (repair tool)
+  record_expense_payment()      – atomically create Expense + AccountTransaction
+                                  and update Account.current_balance
+  post_transaction()            – create a standalone AccountTransaction
+                                  (e.g. inbound customer payment)
+  get_profit_report()           – per-branch and whole-business P&L, split by
+                                  supply channel (farm vs outsourced vs other)
+  get_daily_fulfillment_metrics() – acceptance/rejection rates by source for a day
+  get_kra_audit_export()        – all KRA-declared expenses with receipt paths
+  reconcile_account_balance()   – recompute current_balance from ledger (repair tool)
 """
 
 import logging
@@ -27,8 +29,10 @@ from sqlalchemy.orm import joinedload, selectinload
 from app.db.models.finance import Account, AccountTransaction, Expense, ExpenseCategory
 from app.schemas.finance import (
     BranchProfitLine,
+    DailyFulfillmentMetrics,
     KRAExportRow,
     ProfitReport,
+    SourceFulfillmentLine,
 )
 
 logger = logging.getLogger(__name__)
@@ -60,6 +64,7 @@ async def record_expense_payment(
     amount:          float,
     description:     str,
     expense_date:    date,
+    source:          str | None        = None,   # 'farm' | 'outsourced' | None
     category_id:     uuid.UUID | None = None,
     business_id:     uuid.UUID | None = None,
     branch_id:       uuid.UUID | None = None,
@@ -75,7 +80,7 @@ async def record_expense_payment(
 ) -> tuple[Expense, AccountTransaction | None]:
     """
     Atomically:
-      1. Insert an Expense row.
+      1. Insert an Expense row (with the supply-channel `source` tag).
       2. If account_id is provided, insert an OUTBOUND AccountTransaction
          and decrement Account.current_balance by `amount`.
 
@@ -84,15 +89,20 @@ async def record_expense_payment(
     Raises ValueError for:
       - account_id provided but account not found
       - account_id provided but payment_method omitted
+      - source value not in ('farm', 'outsourced', None)
     """
     if account_id and not payment_method:
         raise ValueError("payment_method is required when account_id is provided")
+
+    if source is not None and source not in ("farm", "outsourced"):
+        raise ValueError("source must be 'farm', 'outsourced', or None")
 
     # ── 1. Create the expense ──────────────────────────────────────────────────
     expense = Expense(
         amount          = amount,
         description     = description,
         expense_date    = expense_date,
+        source          = source,
         category_id     = category_id,
         business_id     = business_id,
         branch_id       = branch_id,
@@ -126,9 +136,9 @@ async def record_expense_payment(
         acct.current_balance = float(acct.current_balance or 0) - amount
 
         logger.info(
-            "record_expense_payment: expense=%s account=%s amount=%.2f "
+            "record_expense_payment: expense=%s source=%s account=%s amount=%.2f "
             "new_balance=%.2f ref=%s",
-            expense.id, account_id, amount, acct.current_balance, reference_no,
+            expense.id, source, account_id, amount, acct.current_balance, reference_no,
         )
 
     await db.commit()
@@ -208,17 +218,18 @@ async def get_profit_report(
     period_end:   date | None = None,
 ) -> ProfitReport:
     """
-    Calculate a full P&L report.
+    Calculate a full P&L report with expenses split by supply channel.
 
     Revenue  = sum of confirmed GRN order_totals (pulled from Branch.total_invoiced
                which is kept in sync on every GRN confirmation — no JOIN needed).
 
-    Expenses = sum of Expense.amount for paid expenses in the period:
-               • branch_expenses  → expenses WHERE branch_id IS NOT NULL
-               • general_expenses → expenses WHERE branch_id IS NULL
-                 (overheads: wages, pipes, tanks, office rent …)
+    Expenses = sum of Expense.amount for paid expenses in the period, grouped by
+               (branch_id, source) so we can see farm vs outsourced costs separately:
+               • farm_expenses       – source = 'farm'
+               • outsourced_expenses – source = 'outsourced'
+               • other_expenses      – source IS NULL (wages, fuel, rent …)
 
-    net_profit = total_revenue - branch_expenses - general_expenses
+    net_profit = total_revenue - total_expenses
     """
     from app.db.models.business import Branch, Business  # avoid circular import
 
@@ -233,10 +244,11 @@ async def get_profit_report(
     )
     branch_rows = (await db.execute(branch_q)).all()
 
-    # ── 2. Aggregate branch-scoped expenses (paid only) ────────────────────────
+    # ── 2. Aggregate expenses grouped by (branch_id, source) ──────────────────
     exp_q = (
         select(
             Expense.branch_id,
+            Expense.source,
             func.sum(Expense.amount).label("total"),
             func.count(Expense.id).label("cnt"),
         )
@@ -246,48 +258,85 @@ async def get_profit_report(
         exp_q = exp_q.where(Expense.expense_date >= period_start)
     if period_end:
         exp_q = exp_q.where(Expense.expense_date <= period_end)
-    exp_q = exp_q.group_by(Expense.branch_id)
+    exp_q = exp_q.group_by(Expense.branch_id, Expense.source)
     expense_rows = (await db.execute(exp_q)).all()
 
-    # Build lookup: branch_id → (total_expenses, count)
-    branch_expense_map: dict[uuid.UUID | None, tuple[float, int]] = {
-        row.branch_id: (float(row.total or 0), int(row.cnt or 0))
-        for row in expense_rows
-    }
+    # Build lookup: branch_id → {source: (total, count)}
+    # source key is one of: 'farm', 'outsourced', None
+    ExpMap = dict[str | None, tuple[float, int]]
+    # Remove the ExpMap line completely and just inline it:
+    branch_expense_map: dict[uuid.UUID | None, dict[str | None, tuple[float, int]]] = {}
+
+    for row in expense_rows:
+        bid = row.branch_id
+        if bid not in branch_expense_map:
+            branch_expense_map[bid] = {}
+        branch_expense_map[bid][row.source] = (
+            float(row.total or 0),
+            int(row.cnt or 0),
+        )
 
     # ── 3. Load business names ─────────────────────────────────────────────────
     biz_ids = {row.business_id for row in branch_rows if row.business_id}
     biz_map: dict[uuid.UUID, str] = {}
     if biz_ids:
         biz_result = await db.execute(
-            select(Business.id, Business.name).where(Business.id.in_(biz_ids))
+            select(Branch.business_id, Business.name)  # type: ignore[attr-defined]
+            .join(Business, Business.id == Branch.business_id)
+            .where(Branch.business_id.in_(biz_ids))
+            .distinct()
         )
-        biz_map = {row.id: row.name for row in biz_result.all()}
+        biz_map = {row.business_id: row.name for row in biz_result.all()}
 
     # ── 4. Assemble per-branch lines ───────────────────────────────────────────
     branch_lines: list[BranchProfitLine] = []
-    total_revenue = 0.0
-    total_branch_exp = 0.0
+    total_revenue      = 0.0
+    total_branch_exp   = 0.0
+    g_farm_exp         = 0.0   # grand totals across all branches + general
+    g_outsourced_exp   = 0.0
+    g_other_exp        = 0.0
 
     for b in branch_rows:
-        revenue = float(b.total_invoiced or 0)
-        exp, cnt = branch_expense_map.get(b.id, (0.0, 0))
+        revenue   = float(b.total_invoiced or 0)
+        src_map   = branch_expense_map.get(b.id, {})
+
+        farm_exp,       farm_cnt       = src_map.get("farm",       (0.0, 0))
+        outsourced_exp, outsourced_cnt = src_map.get("outsourced", (0.0, 0))
+        other_exp,      other_cnt      = src_map.get(None,         (0.0, 0))
+        total_exp = farm_exp + outsourced_exp + other_exp
+        total_cnt = farm_cnt + outsourced_cnt + other_cnt
+
         branch_lines.append(
             BranchProfitLine(
-                branch_id     = b.id,
-                branch_name   = b.branch_name,
-                business_name = biz_map.get(b.business_id) if b.business_id else None,
-                revenue       = revenue,
-                expenses      = exp,
-                gross_profit  = revenue - exp,
-                expense_count = cnt,
+                branch_id           = b.id,
+                branch_name         = b.branch_name,
+                business_name       = biz_map.get(b.business_id) if b.business_id else None,
+                revenue             = revenue,
+                farm_expenses       = farm_exp,
+                outsourced_expenses = outsourced_exp,
+                other_expenses      = other_exp,
+                total_expenses      = total_exp,
+                gross_profit        = revenue - total_exp,
+                expense_count       = total_cnt,
             )
         )
         total_revenue    += revenue
-        total_branch_exp += exp
+        total_branch_exp += total_exp
+        g_farm_exp       += farm_exp
+        g_outsourced_exp += outsourced_exp
+        g_other_exp      += other_exp
 
     # ── 5. General (overhead) expenses — branch_id IS NULL ────────────────────
-    gen_exp, _gen_cnt = branch_expense_map.get(None, (0.0, 0))
+    gen_src_map       = branch_expense_map.get(None, {})
+    gen_farm,       _ = gen_src_map.get("farm",       (0.0, 0))
+    gen_outsourced, _ = gen_src_map.get("outsourced", (0.0, 0))
+    gen_other,      _ = gen_src_map.get(None,         (0.0, 0))
+    gen_exp           = gen_farm + gen_outsourced + gen_other
+
+    # Add general to grand totals
+    g_farm_exp       += gen_farm
+    g_outsourced_exp += gen_outsourced
+    g_other_exp      += gen_other
 
     # ── 6. Assemble final report ───────────────────────────────────────────────
     total_exp = total_branch_exp + gen_exp
@@ -296,20 +345,114 @@ async def get_profit_report(
     branch_lines.sort(key=lambda x: x.gross_profit, reverse=True)
 
     return ProfitReport(
-        period_start     = period_start,
-        period_end       = period_end,
-        total_revenue    = total_revenue,
-        total_expenses   = total_exp,
-        branch_expenses  = total_branch_exp,
-        general_expenses = gen_exp,
-        net_profit       = total_revenue - total_exp,
-        branches         = branch_lines,
-        generated_at     = _now_utc(),
+        period_start              = period_start,
+        period_end                = period_end,
+        total_revenue             = total_revenue,
+        total_expenses            = total_exp,
+        branch_expenses           = total_branch_exp,
+        general_expenses          = gen_exp,
+        total_farm_expenses       = g_farm_exp,
+        total_outsourced_expenses = g_outsourced_exp,
+        total_other_expenses      = g_other_exp,
+        net_profit                = total_revenue - total_exp,
+        branches                  = branch_lines,
+        generated_at              = _now_utc(),
     )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 4. get_kra_audit_export()
+# 4. get_daily_fulfillment_metrics()
+# ═══════════════════════════════════════════════════════════════════════════════
+
+async def get_daily_fulfillment_metrics(
+    db:          AsyncSession,
+    target_date: date,
+) -> DailyFulfillmentMetrics:
+    """
+    Calculate fulfillment acceptance and rejection rates for a specific day,
+    split by supply channel ('farm' vs 'outsourced').
+
+    Joins Order → OrderItem → GRN → GRNItem to compare what was ordered against
+    what was actually accepted/rejected on Goods Received Notes for that date.
+
+    The `target_date` filter is applied against Order.expected_date so you see
+    the performance against the day's planned deliveries.
+    """
+    from app.db.models.items import OrderItem, GRNItem   # avoid circular import
+    from app.db.models.order import Order
+    from app.db.models.grn import GRN
+
+    q = (
+        select(
+            OrderItem.source,
+            func.sum(OrderItem.quantity_requested).label("total_requested"),
+            func.sum(GRNItem.quantity_accepted).label("total_accepted"),
+            func.sum(GRNItem.quantity_rejected).label("total_rejected"),
+        )
+        .select_from(Order)
+        .join(OrderItem, Order.id == OrderItem.order_id)
+        .join(GRN, GRN.lpo_number == Order.lpo_number)
+        .join(
+            GRNItem,
+            (GRNItem.grn_id == GRN.id) & (GRNItem.order_item_id == OrderItem.id),
+        )
+        .where(func.date(Order.expected_date) == target_date)
+        .group_by(OrderItem.source)
+    )
+
+    rows = (await db.execute(q)).all()
+
+    # Build a dict keyed by source value
+    raw: dict[str, dict] = {}
+    for row in rows:
+        source     = row.source if row.source else "farm"  # default farm if null
+        requested  = float(row.total_requested or 0)
+        accepted   = float(row.total_accepted  or 0)
+        rejected   = float(row.total_rejected  or 0)
+        rate       = round((accepted / requested) * 100, 2) if requested > 0 else 0.0
+        raw[source] = {
+            "requested": requested,
+            "accepted":  accepted,
+            "rejected":  rejected,
+            "rate":      rate,
+        }
+
+    def _line(source: str) -> SourceFulfillmentLine:
+        d = raw.get(source, {"requested": 0.0, "accepted": 0.0, "rejected": 0.0, "rate": 0.0})
+        return SourceFulfillmentLine(source=source, **d)
+
+    farm_line       = _line("farm")
+    outsourced_line = _line("outsourced")
+
+    # Combined overall line
+    total_req  = farm_line.requested + outsourced_line.requested
+    total_acc  = farm_line.accepted  + outsourced_line.accepted
+    total_rej  = farm_line.rejected  + outsourced_line.rejected
+    total_rate = round((total_acc / total_req) * 100, 2) if total_req > 0 else 0.0
+
+    overall = SourceFulfillmentLine(
+        source    = "overall",
+        requested = total_req,
+        accepted  = total_acc,
+        rejected  = total_rej,
+        rate      = total_rate,
+    )
+
+    logger.info(
+        "get_daily_fulfillment_metrics: date=%s farm_rate=%.1f%% outsourced_rate=%.1f%% overall_rate=%.1f%%",
+        target_date, farm_line.rate, outsourced_line.rate, overall.rate,
+    )
+
+    return DailyFulfillmentMetrics(
+        target_date = target_date,
+        farm        = farm_line,
+        outsourced  = outsourced_line,
+        overall     = overall,
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 5. get_kra_audit_export()
 # ═══════════════════════════════════════════════════════════════════════════════
 
 async def get_kra_audit_export(
@@ -329,8 +472,6 @@ async def get_kra_audit_export(
 
     Suitable for direct download as JSON or CSV during a tax audit.
     """
-    from app.db.models.business import Branch, Business  # avoid circular import
-
     q = (
         select(Expense)
         .options(
@@ -362,6 +503,7 @@ async def get_kra_audit_export(
                 description   = exp.description,
                 category      = exp.category.name if exp.category else None,
                 amount        = float(exp.amount or 0),
+                source        = exp.source,
                 receipt_path  = exp.receipt_path,
                 business_name = exp.business.name if exp.business else None,
                 branch_name   = exp.branch.branch_name if exp.branch else None,
@@ -377,7 +519,7 @@ async def get_kra_audit_export(
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 5. reconcile_account_balance()  [repair / admin tool]
+# 6. reconcile_account_balance()  [repair / admin tool]
 # ═══════════════════════════════════════════════════════════════════════════════
 
 async def reconcile_account_balance(
@@ -399,8 +541,6 @@ async def reconcile_account_balance(
         select(
             func.coalesce(
                 func.sum(
-                    # Use SQL CASE since we can't call the Python property here
-                    # SQLAlchemy expression equivalent of `signed_amount`
                     AccountTransaction.amount *
                     func.cast(
                         func.case(

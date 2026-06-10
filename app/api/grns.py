@@ -20,7 +20,7 @@ POST   /grns/{id}/retry-invoice   – retry eTIMS submission for a confirmed GRN
 import logging
 import uuid
 from datetime import date
-
+import os
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload
@@ -42,8 +42,10 @@ from app.schemas.grn import (
     EtimsLineItemPreview,
     EtimsPayloadPreviewResponse,
 )
+from functools import partial
 from app.services.etims_mapper import build_etims_payload
 from app.services.etims_health import probe_etims
+import asyncio
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/grns", tags=["grns"])
@@ -343,8 +345,17 @@ async def list_grns(
     return [GRNResponse.from_orm_grn(g) for g in grns]
 
 @router.get("/etims-health")
-def check_etims_health() -> dict:
-    report = probe_etims(timeout=8)
+async def check_etims_health() -> dict:
+    loop = asyncio.get_event_loop()
+    report = await loop.run_in_executor(
+        None,
+        partial(
+            probe_etims,
+            timeout=8,
+            username=os.environ.get("KRA_USERNAME"),
+            password=os.environ.get("KRA_PASSWORD"),
+        ),
+    )
     return report.to_dict()
 @router.get("/{grn_id}", response_model=GRNResponse)
 async def get_grn(

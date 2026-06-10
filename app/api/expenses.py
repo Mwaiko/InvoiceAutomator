@@ -58,6 +58,7 @@ async def create_expense(
         amount          = body.amount,
         description     = body.description,
         expense_date    = body.expense_date,
+        source          = body.source,
         category_id     = body.category_id,
         business_id     = body.business_id,
         branch_id       = body.branch_id,
