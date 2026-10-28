@@ -51,13 +51,20 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ── reuse login + session machinery from fill_kra.py ──────────────────────────
+# Try the package-qualified import first (works when this module is imported
+# via `python -m app.services.whatever`, e.g. from confirm_not_refiled.py),
+# then fall back to the bare import (works when you run this file directly:
+# `cd app/services && python search_duplicates.py`).
 try:
-    from fill_kra import EtimsConfig, _make_session, login, KraError, BASE_URL
+    from app.services.fill_kra import EtimsConfig, _make_session, login, KraError, BASE_URL
 except ImportError:
-    sys.exit(
-        "❌  fill_kra.py not found in the same directory.\n"
-        "    Place search_duplicates.py alongside fill_kra.py and try again."
-    )
+    try:
+        from fill_kra import EtimsConfig, _make_session, login, KraError, BASE_URL
+    except ImportError:
+        sys.exit(
+            "❌  fill_kra.py not found in the same directory.\n"
+            "    Place search_duplicates.py alongside fill_kra.py and try again."
+        )
 
 log = logging.getLogger(__name__)
 

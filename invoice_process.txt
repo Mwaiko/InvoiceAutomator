@@ -960,3 +960,106 @@ $(document).ready(function(){
 	    </tbody>
 	</table>
 </div>
+curl --url 'https://etims.kra.go.ke/app/ebm/trns/sales/trnsSalesReceiptList' \
+  -H 'Accept: text/html, */*; q=0.01' \
+  -H 'Accept-Language: en-GB,en-US;q=0.9,en;q=0.8' \
+  -H 'Connection: keep-alive' \
+  -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' \
+  -b 'JSESSIONID=60702411B31D79196626E800FF0B4373; BIGipServer~k8sprd02~Shared~etims_portal_8080_etims_prod_etims_kra_go_ke=672390154.36895.0000' \
+  -H 'Origin: https://etims.kra.go.ke' \
+  -H 'Referer: https://etims.kra.go.ke/app/ebm/trns/sales/indexTrnsSalesReceipt' \
+  -H 'Sec-Fetch-Dest: empty' \
+  -H 'Sec-Fetch-Mode: cors' \
+  -H 'Sec-Fetch-Site: same-origin' \
+  -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36' \
+  -H 'X-Requested-With: XMLHttpRequest' \
+  -H 'sec-ch-ua: "Not=A?Brand";v="99", "Google Chrome";v="151", "Chromium";v="151"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "Linux"' \
+  --data-raw 'page=1&dtDiv=D&startDt=06%2F08%2F2026&endDt=06%2F08%2F2026&invcNo=&rcptTyCd='
+curl --url 'https://etims.kra.go.ke/app/ebm/trns/sales/trnsSalesReceiptList' \
+  -H 'Accept: text/html, */*; q=0.01' \
+  -H 'Accept-Language: en-GB,en-US;q=0.9,en;q=0.8' \
+  -H 'Connection: keep-alive' \
+  -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' \
+  -b 'JSESSIONID=60702411B31D79196626E800FF0B4373; BIGipServer~k8sprd02~Shared~etims_portal_8080_etims_prod_etims_kra_go_ke=672390154.36895.0000' \
+  -H 'Origin: https://etims.kra.go.ke' \
+  -H 'Referer: https://etims.kra.go.ke/app/ebm/trns/sales/indexTrnsSalesReceipt' \
+  -H 'Sec-Fetch-Dest: empty' \
+  -H 'Sec-Fetch-Mode: cors' \
+  -H 'Sec-Fetch-Site: same-origin' \
+  -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36' \
+  -H 'X-Requested-With: XMLHttpRequest' \
+  -H 'sec-ch-ua: "Not=A?Brand";v="99", "Google Chrome";v="151", "Chromium";v="151"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "Linux"' \
+  --data-raw 'page=1&dtDiv=D&startDt=06%2F08%2F2025&endDt=06%2F08%2F2026&invcNo=515&rcptTyCd='
+// Generating A credit Note
+curl --url 'https://etims.kra.go.ke/app/ebm/trns/popup/popupTrnsSalesInvoice' \
+  -H 'Accept: text/html, */*; q=0.01' \
+  -H 'Accept-Language: en-GB,en-US;q=0.9,en;q=0.8' \
+  -H 'Connection: keep-alive' \
+  -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' \
+  -b 'JSESSIONID=60702411B31D79196626E800FF0B4373; BIGipServer~k8sprd02~Shared~etims_portal_8080_etims_prod_etims_kra_go_ke=672390154.36895.0000' \
+  -H 'Origin: https://etims.kra.go.ke' \
+  -H 'Referer: https://etims.kra.go.ke/app/ebm/trns/sales/indexTrnsSalesReceipt' \
+  -H 'Sec-Fetch-Dest: empty' \
+  -H 'Sec-Fetch-Mode: cors' \
+  -H 'Sec-Fetch-Site: same-origin' \
+  -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36' \
+  -H 'X-Requested-With: XMLHttpRequest' \
+  -H 'sec-ch-ua: "Not=A?Brand";v="99", "Google Chrome";v="151", "Chromium";v="151"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "Linux"' \
+  --data-raw 'tin=P051621945B&bhfId=00&invcNo=515&popId=popupInvoice&popTitle=Invoice+Information&popSize=XL&multiYn=N&callBackFnc='
+curl --url 'https://etims.kra.go.ke/app/ebm/trns/popup/popupTrnsSalesReceiptRefund' \
+  -H 'Accept: text/html, */*; q=0.01' \
+  -H 'Accept-Language: en-GB,en-US;q=0.9,en;q=0.8' \
+  -H 'Connection: keep-alive' \
+  -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' \
+  -b 'JSESSIONID=60702411B31D79196626E800FF0B4373; BIGipServer~k8sprd02~Shared~etims_portal_8080_etims_prod_etims_kra_go_ke=672390154.36895.0000' \
+  -H 'Origin: https://etims.kra.go.ke' \
+  -H 'Referer: https://etims.kra.go.ke/app/ebm/trns/sales/indexTrnsSalesReceipt' \
+  -H 'Sec-Fetch-Dest: empty' \
+  -H 'Sec-Fetch-Mode: cors' \
+  -H 'Sec-Fetch-Site: same-origin' \
+  -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36' \
+  -H 'X-Requested-With: XMLHttpRequest' \
+  -H 'sec-ch-ua: "Not=A?Brand";v="99", "Google Chrome";v="151", "Chromium";v="151"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "Linux"' \
+  --data-raw 'invcNo=515&popId=popupReceiptRefund&popTitle=Credit+Note+reason&popSize=S&multiYn=N&callBackFnc='
+curl --url 'https://etims.kra.go.ke/app/ebm/trns/sales/insertTrnsSalesReceipRefund' \
+  -H 'Accept: application/json, text/javascript, */*; q=0.01' \
+  -H 'Accept-Language: en-GB,en-US;q=0.9,en;q=0.8' \
+  -H 'Connection: keep-alive' \
+  -H 'Content-Type: application/x-www-form-urlencoded;charset=UTF-8' \
+  -b 'JSESSIONID=60702411B31D79196626E800FF0B4373; BIGipServer~k8sprd02~Shared~etims_portal_8080_etims_prod_etims_kra_go_ke=672390154.36895.0000' \
+  -H 'Origin: https://etims.kra.go.ke' \
+  -H 'Referer: https://etims.kra.go.ke/app/ebm/trns/sales/indexTrnsSalesReceipt' \
+  -H 'Sec-Fetch-Dest: empty' \
+  -H 'Sec-Fetch-Mode: cors' \
+  -H 'Sec-Fetch-Site: same-origin' \
+  -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36' \
+  -H 'X-Requested-With: XMLHttpRequest' \
+  -H 'sec-ch-ua: "Not=A?Brand";v="99", "Google Chrome";v="151", "Chromium";v="151"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "Linux"' \
+  --data-raw 'orgInvcNo=515&rfdRsnCd=07'
+curl --url 'https://etims.kra.go.ke/app/ebm/trns/sales/trnsSalesReceiptList' \
+  -H 'Accept: text/html, */*; q=0.01' \
+  -H 'Accept-Language: en-GB,en-US;q=0.9,en;q=0.8' \
+  -H 'Connection: keep-alive' \
+  -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' \
+  -b 'JSESSIONID=60702411B31D79196626E800FF0B4373; BIGipServer~k8sprd02~Shared~etims_portal_8080_etims_prod_etims_kra_go_ke=672390154.36895.0000' \
+  -H 'Origin: https://etims.kra.go.ke' \
+  -H 'Referer: https://etims.kra.go.ke/app/ebm/trns/sales/indexTrnsSalesReceipt' \
+  -H 'Sec-Fetch-Dest: empty' \
+  -H 'Sec-Fetch-Mode: cors' \
+  -H 'Sec-Fetch-Site: same-origin' \
+  -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36' \
+  -H 'X-Requested-With: XMLHttpRequest' \
+  -H 'sec-ch-ua: "Not=A?Brand";v="99", "Google Chrome";v="151", "Chromium";v="151"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "Linux"' \
+  --data-raw 'page=1&dtDiv=D&startDt=06%2F08%2F2026&endDt=06%2F08%2F2026&invcNo=&rcptTyCd='

@@ -1,3 +1,11 @@
 ocr_env/
 .env
 l.txt
+resubmitted_receipts/
+dev_receipts/
+downloaded_receipt/
+*.xlsx
+*.pdf
+*.csv
+*.pyc
+*.pycache

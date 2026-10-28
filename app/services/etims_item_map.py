@@ -120,9 +120,13 @@ ITEM_NAME_ALIASES: dict[str, str] = {
     "COLLARD GREENS"    : "SUKUMA WIKI",
     "KALE"              : "KALES",
     "SKUMA"             : "SUKUMA WIKI", # Common typo
-    # NOTE: "SUKUMAWIKI" (no space) is a separate KRA item under cls 5030150300 —
-    # it lives as its own catalogue entry rather than an alias here.
+    "SUKUMAWIKI"        : "SUKUMA WIKI",
+    "SUKUMAWIKI BUNCH"  : "SUKUMA WIKI",
+    # Confirmed same item, just written with no space on some GRNs
     "SPINACHES"         : "SPINACH",
+    "LEEK"              : "LEEKS",   # singular GRN description -> plural catalogue key
+    "KAHURURAH"         : "KAHURURA",  # trailing-H spelling seen on GRNs
+    "BROCOLLI"          : "BROCCOLI",  # double-L typo seen on GRNs (distinct from "BROCOLI" above)
     "TERERE LEAVES"     : "TERERE",
     "AMARANTH"          : "TERERE",
     "AMARANTHUS"        : "TERERE",
@@ -208,6 +212,23 @@ def _normalise(name: str) -> str:
     return re.sub(r"\s+", " ", name.strip().upper())
 
 
+def _word_boundary_match(short: str, long: str) -> bool:
+    """
+    True if `short` appears in `long` as a whole word/phrase (bounded by
+    non-alphanumeric characters or the string edges), not just as a raw
+    character substring. Prevents accidental partial-word matches, e.g. a
+    short alias like "SUKUMA" matching inside an unrelated longer word that
+    merely happens to start with the same letters.
+    """
+    if short == long:
+        return True
+    if short in long:
+        return re.search(rf"(?<![A-Z0-9]){re.escape(short)}(?![A-Z0-9])", long) is not None
+    if long in short:
+        return re.search(rf"(?<![A-Z0-9]){re.escape(long)}(?![A-Z0-9])", short) is not None
+    return False
+
+
 def resolve_item(description: str) -> ItemEntry | None:
     """
     Look up an eTIMS ItemEntry by product description.
@@ -236,22 +257,41 @@ def resolve_item(description: str) -> ItemEntry | None:
     if key in ETIMS_ITEM_CATALOGUE:
         return ETIMS_ITEM_CATALOGUE[key]
 
-    # 2. Alias match
+    # 2. Alias match (exact)
     canonical = ITEM_NAME_ALIASES.get(key)
     if canonical and canonical in ETIMS_ITEM_CATALOGUE:
         return ETIMS_ITEM_CATALOGUE[canonical]
 
-    # 3. Substring match (longest catalogue key wins to avoid false positives)
+    # 3. Substring match against catalogue keys directly (whole-word only —
+    #    plain substring containment is dangerous: a short key could match
+    #    inside an unrelated longer word purely by coincidence. Longest
+    #    matching key wins.)
     best_key: str | None = None
     best_len = 0
     for cat_key in ETIMS_ITEM_CATALOGUE:
-        if cat_key in key or key in cat_key:
+        if _word_boundary_match(cat_key, key):
             if len(cat_key) > best_len:
                 best_key = cat_key
                 best_len = len(cat_key)
 
     if best_key:
         return ETIMS_ITEM_CATALOGUE[best_key]
+
+    # 4. Substring match against ALIAS keys, same whole-word rule as step 3
+    #    (e.g. "DHANIA" catches "DHANIA BUNCH", but a short alias never
+    #    catches a longer unrelated word it just happens to prefix).
+    best_alias_key: str | None = None
+    best_alias_len = 0
+    for alias_key, canonical_name in ITEM_NAME_ALIASES.items():
+        if canonical_name not in ETIMS_ITEM_CATALOGUE:
+            continue
+        if _word_boundary_match(alias_key, key):
+            if len(alias_key) > best_alias_len:
+                best_alias_key = alias_key
+                best_alias_len = len(alias_key)
+
+    if best_alias_key:
+        return ETIMS_ITEM_CATALOGUE[ITEM_NAME_ALIASES[best_alias_key]]
 
     return None
 

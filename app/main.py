@@ -61,6 +61,7 @@ def create_app() -> FastAPI:
     from app.api.expense_categories import router as expense_categories_router 
     from app.api.expenses   import router as expenses_router
     from app.api.items      import router as items_router
+    from app.api.grn_filing import router as grn_filing_router
     app.include_router(auth_router,       prefix="/api/v1")
     app.include_router(grns_router,       prefix="/api/v1")
     app.include_router(etims_router,      prefix="/api/v1")
@@ -72,6 +73,7 @@ def create_app() -> FastAPI:
     app.include_router(expense_categories_router,prefix="/api/v1")
     app.include_router(expenses_router,   prefix="/api/v1")
     app.include_router(items_router,      prefix="/api/v1")
+    app.include_router(grn_filing_router,prefix="/api/v1")
     # ── Health check ──────────────────────────────────────────────────────────
     @app.get("/health", tags=["system"])
     async def health():

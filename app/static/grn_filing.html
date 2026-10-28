@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GRN Filing Desk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#f5f0e4;--card:#fffdf7;--ink:#1c2a25;--mute:#6b746e;--rule:#d9d1bd;--green:#1d5c45;--green-bg:#dcebdf;--red:#b2331d;--red-bg:#f6dcd4;--amber:#a8700f;--amber-bg:#f6e8c4;--blue:#274e7a;--blue-bg:#dde7f1;--shadow:0 1px 0 rgba(0,0,0,.04),0 8px 24px -12px rgba(40,30,10,.25)}
+@media (prefers-color-scheme:dark){:root{--paper:#161b18;--card:#1e2521;--ink:#ebe6d8;--mute:#98a39b;--rule:#34403a;--green:#6fc29c;--green-bg:#1f3a2d;--red:#f08a73;--red-bg:#43231c;--amber:#e3b04d;--amber-bg:#40320f;--blue:#8fb4de;--blue-bg:#1e3045;--shadow:0 8px 24px -12px #000}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--paper);color:var(--ink);font:14px/1.45 "IBM Plex Sans",system-ui,sans-serif;background-image:repeating-linear-gradient(transparent 0 31px,color-mix(in srgb,var(--rule) 45%,transparent) 31px 32px);min-height:100vh}
+.mono,input.num,td.num{font-family:"IBM Plex Mono",ui-monospace,monospace}
+h1,h2{font-family:Fraunces,Georgia,serif;margin:0;font-weight:700;letter-spacing:-.01em}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 20px 120px}
+header{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px}
+h1{font-size:32px;line-height:1}
+.sub{color:var(--mute);margin-top:6px}
+.pill{display:inline-flex;align-items:center;gap:8px;padding:7px 13px;border:1px solid var(--rule);border-radius:99px;background:var(--card);cursor:pointer;font-weight:500;position:relative}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--mute)}
+.pill.up .dot{background:var(--green);box-shadow:0 0 0 4px var(--green-bg)}.pill.down .dot{background:var(--red);box-shadow:0 0 0 4px var(--red-bg)}
+#hpop{position:absolute;right:0;top:44px;width:360px;background:var(--card);border:1px solid var(--rule);box-shadow:var(--shadow);border-radius:10px;padding:12px;z-index:30;display:none;text-align:left;cursor:default}
+#hpop.open{display:block}#hpop .row{display:flex;gap:8px;padding:5px 0;border-bottom:1px dashed var(--rule);font-size:12.5px}#hpop .row:last-child{border:0}
+.ok{color:var(--green)}.no{color:var(--red)}
+#drop{border:2px dashed var(--rule);border-radius:14px;background:var(--card);padding:34px 20px;text-align:center;transition:.15s;cursor:pointer;box-shadow:var(--shadow)}
+#drop.over{border-color:var(--green);background:var(--green-bg)}
+#drop b{font-family:Fraunces,serif;font-size:20px;display:block;margin-bottom:4px}
+#drop span{color:var(--mute)}
+.stats{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0 12px}
+.stat{background:var(--card);border:1px solid var(--rule);border-radius:10px;padding:8px 14px;min-width:96px}
+.stat b{font:500 20px "IBM Plex Mono",monospace;display:block}.stat small{color:var(--mute)}
+.list{background:var(--card);border:1px solid var(--rule);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+.jr{display:grid;grid-template-columns:1.6fr 1.3fr .9fr 150px auto;gap:12px;align-items:center;padding:13px 16px;border-bottom:1px solid var(--rule)}
+.jr:last-child{border:0}.jr.head{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);padding:9px 16px;background:color-mix(in srgb,var(--rule) 35%,transparent)}
+.fn{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.msg{font-size:12px;color:var(--mute);margin-top:2px}.msg.bad{color:var(--red)}
+.badge{display:inline-block;padding:3px 10px;border-radius:5px;font-size:11.5px;font-weight:600;letter-spacing:.03em;text-transform:uppercase;border:1.5px solid currentColor;transform:rotate(-1.5deg)}
+.b-green{color:var(--green);background:var(--green-bg)}.b-red{color:var(--red);background:var(--red-bg)}.b-amber{color:var(--amber);background:var(--amber-bg)}.b-blue{color:var(--blue);background:var(--blue-bg)}.b-grey{color:var(--mute)}
+.spin{display:inline-block;width:11px;height:11px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-1px;margin-right:5px}@keyframes sp{to{transform:rotate(360deg)}}
+button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--rule);background:var(--card);color:var(--ink);padding:7px 13px;font-weight:500}
+button:hover:not(:disabled){border-color:var(--ink)}button:disabled{opacity:.45;cursor:not-allowed}
+button.pri{background:var(--green);border-color:var(--green);color:#fff}button.pri:hover:not(:disabled){filter:brightness(1.1);border-color:var(--green)}
+@media (prefers-color-scheme:dark){button.pri{color:#0d1a14}}
+button.dng{color:var(--red)}button.sm{padding:4px 10px;font-size:12.5px}
+.acts{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}
+.empty{padding:48px;text-align:center;color:var(--mute)}
+#bar{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--rule);padding:12px 20px;display:flex;gap:14px;align-items:center;justify-content:center;z-index:20;box-shadow:0 -8px 24px -16px rgba(0,0,0,.3)}
+#bar .info{max-width:560px}
+.prog{height:6px;background:var(--rule);border-radius:9px;width:200px;overflow:hidden}.prog i{display:block;height:100%;background:var(--green);transition:.3s}
+/* modal */
+#ov{position:fixed;inset:0;background:rgba(15,20,17,.55);display:none;align-items:center;justify-content:center;z-index:50;padding:18px}
+#ov.open{display:flex}
+.modal{background:var(--paper);border-radius:16px;width:min(1280px,100%);height:min(900px,100%);display:flex;flex-direction:column;overflow:hidden;box-shadow:0 30px 80px -20px #000}
+.mh{padding:14px 20px;border-bottom:1px solid var(--rule);display:flex;justify-content:space-between;align-items:center;gap:12px;background:var(--card)}
+.mb{flex:1;display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);min-height:0}
+.src{background:#2a2f2c;display:flex;min-height:0}.src iframe,.src img{width:100%;height:100%;border:0;object-fit:contain;background:#fff}
+.form{overflow:auto;padding:18px 22px}
+.sec{font:700 11px "IBM Plex Sans";letter-spacing:.1em;text-transform:uppercase;color:var(--mute);margin:18px 0 8px}.sec:first-child{margin-top:0}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+label{display:block;font-size:12px;color:var(--mute);margin-bottom:3px}
+input{width:100%;font:inherit;padding:7px 9px;border:1px solid var(--rule);border-radius:7px;background:var(--card);color:var(--ink)}
+input:focus{outline:2px solid var(--green);outline-offset:-1px}input.bad{border-color:var(--red);background:var(--red-bg)}
+table{width:100%;border-collapse:collapse;font-size:13px}th{font-size:11px;text-align:left;color:var(--mute);font-weight:600;padding:4px 4px}td{padding:3px 3px;vertical-align:top}td.num{text-align:right;padding:9px 6px;white-space:nowrap}
+.iss{padding:8px 12px;border-radius:8px;margin-bottom:6px;font-size:13px;border-left:4px solid}.iss.error{background:var(--red-bg);border-color:var(--red)}.iss.warn{background:var(--amber-bg);border-color:var(--amber)}
+.tot{display:flex;justify-content:space-between;padding:10px 12px;background:var(--card);border:1px solid var(--rule);border-radius:8px;margin-top:8px}
+.mf{padding:12px 20px;border-top:1px solid var(--rule);background:var(--card);display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+pre{background:var(--card);border:1px solid var(--rule);border-radius:8px;padding:10px;font:12px/1.5 "IBM Plex Mono",monospace;overflow:auto;white-space:pre-wrap;margin:6px 0}
+#toasts{position:fixed;top:16px;right:16px;display:grid;gap:8px;z-index:90}.toast{background:var(--ink);color:var(--paper);padding:10px 14px;border-radius:9px;max-width:380px;box-shadow:var(--shadow)}.toast.e{background:var(--red);color:#fff}
+@media (max-width:860px){.jr{grid-template-columns:1fr auto}.jr.head{display:none}.mb{grid-template-columns:1fr;overflow:auto}.src{height:320px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div><h1>GRN Filing Desk</h1><div class="sub">Upload → check → file to KRA eTIMS. One GRN at a time, nothing sent unchecked.</div></div>
+    <div class="pill" id="hp" onclick="toggleH(event)"><span class="dot"></span><span id="ht">Checking KRA…</span><div id="hpop" onclick="event.stopPropagation()"></div></div>
+  </header>
+
+  <div id="drop" onclick="fi.click()"><b>Drop GRN scans here</b><span>PDF or images · select as many as you like</span></div>
+  <input type="file" id="fi" multiple hidden accept=".pdf,.jpg,.jpeg,.png,.bmp,.tif,.tiff,.webp">
+
+  <div class="stats" id="stats"></div>
+  <div class="list" id="list"></div>
+</div>
+
+<div id="bar"></div>
+<div id="ov"><div class="modal" id="modal"></div></div>
+<div id="toasts"></div>
+
+<script>
+const API = location.pathname.replace(/\/ui\/?$/, '');
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const money = n => (Number(n) || 0).toLocaleString('en-KE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const ST = {
+  extracting:['Reading','b-blue',1], extract_failed:['Read failed','b-red'], review:['Needs review','b-amber'],
+  confirmed:['Confirmed','b-blue'], queued:['Queued','b-blue',1], filing:['Filing','b-blue',1], filed:['Filed','b-green'],
+  failed:['Failed','b-red'], needs_fix:['Fix required','b-red'], verify:['Verify on KRA','b-amber'], held:['Held · KRA down','b-amber']
+};
+let jobs = [], batch = {}, health = null, cur = null, draft = null, pv = null, busy = false;
+
+async function api(path, opts = {}) {
+  let r;
+  try { r = await fetch(API + path, opts); } catch (e) { throw {msg: 'Network error — is the server reachable?'}; }
+  let body = null; try { body = await r.json(); } catch (e) {}
+  if (!r.ok) throw {status: r.status, msg: (body && (typeof body.detail === 'string' ? body.detail : JSON.stringify(body.detail))) || r.statusText, body};
+  return body;
+}
+function toast(m, err) { const d = document.createElement('div'); d.className = 'toast' + (err ? ' e' : ''); d.textContent = m; $('#toasts').append(d); setTimeout(() => d.remove(), err ? 7000 : 3500); }
+
+/* ---------- health ---------- */
+async function loadHealth(fresh) {
+  try { health = await api('/health' + (fresh ? '?fresh=true' : '')); } catch (e) { health = {site_up: false, checks: [{name: 'Server', passed: false, message: e.msg}]}; }
+  const p = $('#hp'); p.className = 'pill ' + (health.site_up ? 'up' : 'down');
+  $('#ht').textContent = health.site_up ? 'KRA eTIMS healthy' : 'KRA eTIMS unavailable';
+  $('#hpop').innerHTML = (health.checks || []).map(c => `<div class="row"><b class="${c.passed ? 'ok' : 'no'}">${c.passed ? '✓' : '✕'}</b><div><b>${esc(c.name)}</b><br><span style="color:var(--mute)">${esc(c.message)}</span></div></div>`).join('')
+    + `<div style="margin-top:8px"><button class="sm" onclick="loadHealth(true)">Re-check now</button></div>`;
+  renderBar();
+}
+function toggleH(e) { $('#hpop').classList.toggle('open'); }
+
+/* ---------- upload ---------- */
+async function upload(files) {
+  if (!files.length) return;
+  const fd = new FormData(); [...files].forEach(f => fd.append('files', f));
+  try {
+    const r = await api('/upload', {method: 'POST', body: fd});
+    toast(`${r.created.length} file(s) uploaded — reading…`);
+    (r.rejected || []).forEach(x => toast(`Skipped ${x.filename}: ${x.error}`, true));
+  } catch (e) { toast('Upload failed: ' + e.msg, true); }
+  poll();
+}
+const drop = $('#drop');
+['dragover', 'dragenter'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => upload(e.dataTransfer.files));
+$('#fi').addEventListener('change', e => { upload(e.target.files); e.target.value = ''; });
+
+/* ---------- list ---------- */
+async function poll() {
+  try { const r = await api('/jobs'); jobs = r.jobs; batch = r.batch || {}; render(); } catch (e) { /* keep last view; next poll retries */ }
+}
+setInterval(() => { if (!document.hidden) poll(); }, 2000);
+setInterval(() => loadHealth(false), 30000);
+
+function render() {
+  const n = s => jobs.filter(j => s.includes(j.status)).length;
+  $('#stats').innerHTML = [['To review', n(['review','needs_fix'])], ['Confirmed', n(['confirmed','held'])], ['Filed', n(['filed'])], ['Problems', n(['failed','extract_failed','verify'])]]
+    .map(([l, v]) => `<div class="stat"><b>${v}</b><small>${l}</small></div>`).join('');
+  $('#list').innerHTML = jobs.length
+    ? `<div class="jr head"><div>Document</div><div>Buyer / store</div><div>Total</div><div>Status</div><div></div></div>` + jobs.map(row).join('')
+    : `<div class="empty">No GRNs yet. Drop some scans above to begin.</div>`;
+  renderBar();
+}
+function row(j) {
+  const d = j.data || {}, s = d.store || {}, st = ST[j.status] || [j.status, 'b-grey'];
+  const errs = (j.issues || []).filter(i => i.level === 'error').length;
+  const bad = ['failed','needs_fix','extract_failed','verify'].includes(j.status);
+  let a = '';
+  if (['review','confirmed','needs_fix','failed','held'].includes(j.status)) a += `<button class="sm" onclick="openReview('${j.id}')">${j.status === 'review' ? 'Review' : 'Open'}</button>`;
+  if (['failed','held'].includes(j.status)) a += `<button class="sm pri" onclick="fileIds(['${j.id}'])">Retry</button>`;
+  if (j.status === 'extract_failed') a += `<button class="sm" onclick="act('${j.id}','reextract','POST')">Retry read</button>`;
+  if (j.status === 'verify') a += `<button class="sm" onclick="resolveJob('${j.id}','filed')">It's on KRA</button><button class="sm" onclick="resolveJob('${j.id}','not_filed')">Not on KRA</button>`;
+  if (!['filing','queued','filed','verify'].includes(j.status)) a += `<button class="sm dng" onclick="act('${j.id}','','DELETE')">✕</button>`;
+  return `<div class="jr"><div><div class="fn" title="${esc(j.filename)}">${esc(j.filename)}</div><div class="msg ${bad ? 'bad' : ''}">${esc(j.message)}${j.status === 'review' && errs ? ` · ${errs} issue(s)` : ''}</div></div>
+  <div>${esc(s.company_name || '—')}<div class="msg">${esc(s.store_name || '')}${d.receipt_voucher_no ? ' · GRN ' + esc(d.receipt_voucher_no) : ''}</div></div>
+  <div class="mono">${d.order_total != null ? money(d.order_total) : '—'}</div>
+  <div><span class="badge ${st[1]}">${st[2] ? '<i class="spin"></i>' : ''}${st[0]}</span>${j.invoice_no ? `<div class="msg mono">Inv ${esc(j.invoice_no)}${j.kra_invoice_no ? ' · KRA #' + esc(j.kra_invoice_no) : ''}</div>` : ''}</div>
+  <div class="acts">${a}</div></div>`;
+}
+async function act(id, p, method) {
+  if (method === 'DELETE' && !confirm('Remove this GRN from the list?')) return;
+  try { await api(`/jobs/${id}${p ? '/' + p : ''}`, {method}); } catch (e) { toast(e.msg, true); }
+  poll();
+}
+async function resolveJob(id, outcome) {
+  const t = outcome === 'filed' ? 'Confirm this invoice IS present on the KRA portal?' : 'Confirm it is NOT on the KRA portal? It will become fileable again.';
+  if (!confirm(t)) return;
+  try { await api(`/jobs/${id}/resolve`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({outcome})}); } catch (e) { toast(e.msg, true); }
+  poll();
+}
+
+/* ---------- bottom bar / filing ---------- */
+function renderBar() {
+  const ready = jobs.filter(j => ['confirmed','held'].includes(j.status)).map(j => j.id);
+  const run = batch.running;
+  const pct = batch.total ? Math.round(100 * batch.done / batch.total) : 0;
+  $('#bar').style.display = (ready.length || run) ? 'flex' : 'none';
+  $('#bar').innerHTML = run
+    ? `<div class="info"><b>Filing ${batch.done}/${batch.total}…</b><div class="msg ${batch.message ? 'bad' : ''}">${esc(batch.message || 'One at a time. Failures are skipped and listed above.')}</div></div><div class="prog"><i style="width:${pct}%"></i></div>`
+    : `<div class="info"><b>${ready.length} confirmed GRN(s) ready</b><div class="msg">${health && health.site_up ? 'KRA is healthy.' : '<span class="no">KRA is not healthy — filing is blocked.</span>'}</div></div>
+       <button class="pri" ${health && health.site_up ? '' : 'disabled'} onclick='fileIds(${JSON.stringify(ready)})'>File ${ready.length} to KRA</button>`;
+}
+async function fileIds(ids) {
+  if (!confirm(`Submit ${ids.length} invoice(s) to KRA eTIMS now?\nSubmissions cannot be undone from here.`)) return;
+  try { await api('/file', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({job_ids: ids})}); toast('Filing started'); }
+  catch (e) {
+    toast(e.msg, true);
+    if (e.status === 503) { health = e.body.report; loadHealth(true); $('#hpop').classList.add('open'); }
+  }
+  poll();
+}
+
+/* ---------- review modal ---------- */
+const reviewable = () => jobs.filter(j => ['review','confirmed','needs_fix','failed','held'].includes(j.status)).map(j => j.id);
+function openReview(id) {
+  cur = jobs.find(j => j.id === id); if (!cur) return;
+  draft = JSON.parse(JSON.stringify(cur.data || {items: [], store: {}}));
+  draft.store = draft.store || {}; draft.items = draft.items || []; pv = null;
+  $('#ov').classList.add('open'); drawModal(cur.issues || []);
+}
+function closeReview() { $('#ov').classList.remove('open'); cur = null; poll(); }
+const fld = (label, path, cls = '') => `<div><label>${label}</label><input data-p="${path}" class="${cls}" value="${esc(get(path))}" oninput="setv(this)"></div>`;
+function get(p) { return p.split('.').reduce((o, k) => (o || {})[k], draft) ?? ''; }
+function setv(el) {
+  const ks = el.dataset.p.split('.'), last = ks.pop(); const o = ks.reduce((o, k) => o[k], draft); o[last] = el.value; el.classList.remove('bad'); totals();
+}
+function lineTotal() { return draft.items.reduce((a, i) => a + (parseFloat(i.qty_received) || 0) * (parseFloat(i.unit_price) || 0), 0); }
+function totals() {
+  const t = lineTotal(), o = parseFloat(String(draft.order_total).replace(/,/g, ''));
+  const el = $('#tot'); if (!el) return;
+  const diff = !isNaN(o) && Math.abs(o - t) > 1;
+  el.innerHTML = `<span>Sum of lines</span><b class="mono">${money(t)}</b><span>Order total on GRN</span><b class="mono ${diff ? 'no' : ''}">${isNaN(o) ? '—' : money(o)} ${diff ? '⚠ differs' : (isNaN(o) ? '' : '✓')}</b>`;
+  el.style.cssText = 'display:grid;grid-template-columns:1fr auto;gap:4px 14px';
+  document.querySelectorAll('.lt').forEach((c, i) => c.textContent = money((parseFloat(draft.items[i].qty_received) || 0) * (parseFloat(draft.items[i].unit_price) || 0)));
+}
+function addLine() { draft.items.push({description: '', uom: 'KG', qty_received: 1, unit_price: 0}); drawModal(); }
+function delLine(i) { draft.items.splice(i, 1); drawModal(); }
+function drawModal(issues) {
+  const j = cur, ids = reviewable(), pos = ids.indexOf(j.id);
+  const bad = k => (issues || []).some(i => i.field === k && i.level === 'error') ? 'bad' : '';
+  const src = j.file_type === 'pdf' ? `<iframe src="${API}/jobs/${j.id}/file"></iframe>` : `<img src="${API}/jobs/${j.id}/file" alt="GRN">`;
+  const failBanner = ['failed','needs_fix','held'].includes(j.status) ? `<div class="iss error"><b>Last attempt:</b> ${esc(j.message)}</div>` : '';
+  const iss = (issues || []).map(i => `<div class="iss ${i.level}">${i.level === 'error' ? '✕' : '⚠'} ${esc(i.msg)}</div>`).join('');
+  $('#modal').innerHTML = `
+  <div class="mh"><div><h2>${esc(j.filename)}</h2><div class="msg">${pos + 1} of ${ids.length} awaiting review</div></div>
+    <div class="acts"><button class="sm" ${pos <= 0 ? 'disabled' : ''} onclick="go(${pos - 1})">← Prev</button><button class="sm" ${pos >= ids.length - 1 ? 'disabled' : ''} onclick="go(${pos + 1})">Next →</button><button class="sm" onclick="closeReview()">Close</button></div></div>
+  <div class="mb"><div class="src">${src}</div>
+   <div class="form">${failBanner}${iss ? `<div class="sec">Issues</div>${iss}` : ''}
+    <div class="sec">Document references</div>
+    <div class="g2">${fld('LPO / Order No', 'lpo_number', bad('lpo_number'))}${fld('Delivery note / Invoice No', 'delivery_invoice_no', bad('delivery_invoice_no'))}${fld('GRN / Receipt voucher No', 'receipt_voucher_no', bad('receipt_voucher_no'))}${fld('Receipt date', 'receipt_date')}${fld('Order total (KES)', 'order_total')}</div>
+    <div class="sec">Buyer</div>
+    <div class="g2">${fld('Company', 'store.company_name', bad('store.company_name'))}${fld('Store / branch', 'store.store_name', bad('store.store_name'))}</div>
+    <div class="sec">Line items</div>
+    <table><tr><th>Description</th><th style="width:70px">Qty</th><th style="width:60px">UoM</th><th style="width:90px">Unit price</th><th style="width:90px;text-align:right">Total</th><th></th></tr>
+    ${draft.items.map((it, i) => `<tr><td><input data-p="items.${i}.description" class="${bad(`items.${i}.description`)}" value="${esc(it.description)}" oninput="setv(this)"></td>
+      <td><input class="num ${bad(`items.${i}.qty_received`)}" data-p="items.${i}.qty_received" value="${esc(it.qty_received)}" oninput="setv(this)"></td>
+      <td><input data-p="items.${i}.uom" value="${esc(it.uom)}" oninput="setv(this)"></td>
+      <td><input class="num ${bad(`items.${i}.unit_price`)}" data-p="items.${i}.unit_price" value="${esc(it.unit_price)}" oninput="setv(this)"></td>
+      <td class="num lt"></td><td><button class="sm dng" onclick="delLine(${i})">✕</button></td></tr>`).join('')}</table>
+    <button class="sm" style="margin-top:6px" onclick="addLine()">+ Add line</button>
+    <div class="tot" id="tot"></div>
+    <div class="sec">What KRA will receive</div>
+    <button class="sm" onclick="showPreview()">Preview eTIMS payload</button><div id="pv"></div>
+   </div></div>
+  <div class="mf"><label style="display:flex;gap:8px;align-items:center;margin:0;color:var(--ink);font-size:13px"><input type="checkbox" id="ck" style="width:auto" onchange="$('#cf').disabled=!this.checked||busy"> I checked every value above against the scanned document</label>
+    <div class="acts"><button onclick="saveDraft()">Save draft</button><button class="pri" id="cf" disabled onclick="confirmJob()">Confirm for filing</button></div></div>`;
+  totals(); if (pv) renderPv();
+}
+function go(p) { const ids = reviewable(); if (ids[p]) { saveDraft(true).then(() => openReview(ids[p])); } }
+async function put(confirm_) {
+  return api(`/jobs/${cur.id}`, {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({data: draft, confirm: confirm_})});
+}
+async function saveDraft(quiet) {
+  try { const r = await put(false); cur = r; await poll(); if (!quiet) { drawModal(r.issues); toast('Draft saved'); } } catch (e) { toast(e.msg, true); }
+}
+async function confirmJob() {
+  busy = true; $('#cf').disabled = true;
+  try {
+    await put(true); toast('Confirmed — ready to file'); await poll();
+    const next = reviewable().find(id => jobs.find(j => j.id === id).status === 'review');
+    next ? openReview(next) : closeReview();
+  } catch (e) {
+    if (e.status === 422 && e.body && e.body.issues) { drawModal(e.body.issues); toast('Fix the highlighted errors first', true); }
+    else toast(e.msg, true);
+  } finally { busy = false; }
+}
+async function showPreview() {
+  $('#pv').innerHTML = '<div class="msg"><i class="spin"></i>Building…</div>';
+  try { await put(false); pv = await api(`/jobs/${cur.id}/preview`); renderPv(); }
+  catch (e) { pv = null; $('#pv').innerHTML = `<div class="iss error">${esc(e.msg)}</div>`; }
+}
+function renderPv() {
+  const i = pv.invoice, m = pv.meta;
+  $('#pv').innerHTML = `<pre>Buyer     : ${esc(i.custNm)}\nStore no  : ${esc(m.store_number)}   Invoice no (expected): ${esc(m.invoice_number)}\nRemark    : ${esc(i.remark)}\nPayment   : ${esc(i.pmtTyCd)}   Mobile: ${esc(i.custMblNo)}</pre>
+  <table><tr><th>Item</th><th>itemCd</th><th>Class</th><th>Tax</th><th>UoM</th><th style="text-align:right">Qty × Price</th></tr>${pv.items.map(x => `<tr><td>${esc(x.itemNm)}</td><td class="mono">${esc(x.itemCd)}</td><td class="mono">${esc(x.item_cls_cd)}</td><td>${esc(x.tax_ty_cd)}</td><td>${esc(x.uom)}</td><td class="num">${x.qty} × ${money(x.prc)}</td></tr>`).join('')}</table>`;
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && cur) closeReview(); });
+document.addEventListener('click', e => { if (!e.target.closest('#hp')) $('#hpop').classList.remove('open'); });
+loadHealth(); poll();
+</script>
+</body>
+</html>

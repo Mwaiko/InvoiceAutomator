@@ -427,6 +427,96 @@ def download_invoices(
     return saved
 
 
+def download_by_receipt_range(
+    cfg:        EtimsConfig,
+    start_no:   int,
+    end_no:     int,
+    step:       int = 1,
+    out_dir:    Path = Path("./downloaded_receipts"),
+) -> list[Path]:
+    """
+    Login → download receipts directly by their internal receipt number,
+    for start_no..end_no (inclusive), skipping by `step`.
+
+    This bypasses the date-range list fetch entirely, which is useful when
+    you already know the receipt numbers (e.g. credit notes 793-831, odd
+    numbers only → start_no=793, end_no=831, step=2).
+    """
+    session = _make_session()
+
+    log.info("🔑 Logging in to eTIMS portal…")
+    login(cfg, session)
+
+    receipt_nos = list(range(start_no, end_no + 1, step))
+    log.info("📋 %d receipt(s) to download (IDs %s … %s, step %d) → %s",
+              len(receipt_nos), start_no, end_no, step, out_dir)
+
+    saved: list[Path] = []
+    for idx, rno in enumerate(receipt_nos):
+        path = download_pdf_via_popup(session, cfg, str(rno), out_dir)
+        if path:
+            saved.append(path)
+        else:
+            log.warning("  ⚠️  Failed to download receipt %s", rno)
+
+        if idx < len(receipt_nos) - 1:
+            time.sleep(DELAY_S)
+
+    log.info("📊 Done: %d/%d receipts downloaded to %s",
+             len(saved), len(receipt_nos), out_dir.resolve())
+    return saved
+
+
+def download_invoices_and_credit_notes(
+    cfg:              EtimsConfig,
+    start_no:         int,
+    end_no:           int,
+    invoices_dir:     Path = Path("./downloaded_receipts"),
+    credit_notes_dir: Path = Path("./credit_notes"),
+) -> tuple[list[Path], list[Path]]:
+    """
+    Login → download receipts by internal receipt number for start_no..end_no
+    (inclusive), routing ODD numbers to `invoices_dir` (invoices) and EVEN
+    numbers to `credit_notes_dir` (credit notes).
+
+    Returns (saved_invoices, saved_credit_notes).
+    """
+    session = _make_session()
+
+    log.info("🔑 Logging in to eTIMS portal…")
+    login(cfg, session)
+
+    receipt_nos = list(range(start_no, end_no + 1))
+    log.info(
+        "📋 %d receipt(s) to sort/download (IDs %s … %s) → invoices: %s | credit notes: %s",
+        len(receipt_nos), start_no, end_no, invoices_dir, credit_notes_dir,
+    )
+
+    saved_invoices: list[Path] = []
+    saved_credit_notes: list[Path] = []
+
+    for idx, rno in enumerate(receipt_nos):
+        is_odd = (rno % 2 == 1)
+        out_dir = invoices_dir if is_odd else credit_notes_dir
+        kind = "invoice" if is_odd else "credit note"
+
+        path = download_pdf_via_popup(session, cfg, str(rno), out_dir)
+        if path:
+            (saved_invoices if is_odd else saved_credit_notes).append(path)
+        else:
+            log.warning("  ⚠️  Failed to download receipt %s (%s)", rno, kind)
+
+        if idx < len(receipt_nos) - 1:
+            time.sleep(DELAY_S)
+
+    log.info(
+        "📊 Done: %d invoice(s) → %s, %d credit note(s) → %s",
+        len(saved_invoices), invoices_dir.resolve(),
+        len(saved_credit_notes), credit_notes_dir.resolve(),
+    )
+    return saved_invoices, saved_credit_notes
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # CLI
 # ─────────────────────────────────────────────────────────────────────────────
@@ -449,9 +539,87 @@ def main() -> None:
                         help="End date for range (use with --start)")
     parser.add_argument("--invoice", metavar="KRACU…/NNN",
                         help="Download a single specific invoice number")
+    parser.add_argument("--id-start", metavar="N", type=int,
+                        help="Download by internal receipt-number range: start ID "
+                             "(use with --id-end; e.g. --id-start 793 --id-end 831)")
+    parser.add_argument("--id-end",   metavar="N", type=int,
+                        help="Internal receipt-number range: end ID (inclusive)")
+    parser.add_argument("--id-step",  metavar="N", type=int, default=1,
+                        help="Step between receipt numbers (default: 1). "
+                             "Use 2 with an odd --id-start to get odd numbers only.")
+    parser.add_argument("--split-start", metavar="N", type=int,
+                        help="Download a receipt-number range, splitting ODD numbers "
+                             "into --invoices-out (invoices) and EVEN numbers into "
+                             "--credit-notes-out (credit notes). Use with --split-end.")
+    parser.add_argument("--split-end",   metavar="N", type=int,
+                        help="End of the split-range (inclusive). Use with --split-start.")
+    parser.add_argument("--invoices-out", metavar="DIR", default="./downloaded_receipts",
+                        help="Output directory for odd-numbered invoices "
+                             "(default: ./downloaded_receipts)")
+    parser.add_argument("--credit-notes-out", metavar="DIR", default="./credit_notes",
+                        help="Output directory for even-numbered credit notes "
+                             "(default: ./credit_notes)")
     parser.add_argument("--out",     metavar="DIR", default="./downloaded_receipts",
                         help="Output directory (default: ./downloaded_receipts)")
     args = parser.parse_args()
+
+    # ── Split range mode (odd → invoices, even → credit notes) ───────────────
+    if args.split_start is not None and args.split_end is not None:
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(asctime)s  %(levelname)-7s  %(message)s",
+            datefmt="%H:%M:%S",
+        )
+        cfg = EtimsConfig(
+            pin      = os.environ.get("KRA_PIN",      "P051621945B"),
+            username = os.environ.get("KRA_USERNAME",  "P051621945B"),
+            password = os.environ.get("KRA_PASSWORD",  "Nairobi@2025"),
+        )
+        saved_inv, saved_cn = download_invoices_and_credit_notes(
+            cfg              = cfg,
+            start_no         = args.split_start,
+            end_no           = args.split_end,
+            invoices_dir     = Path(args.invoices_out),
+            credit_notes_dir = Path(args.credit_notes_out),
+        )
+        print(f"\n✅ {len(saved_inv)} invoice(s) saved to {Path(args.invoices_out).resolve()}:")
+        for p in saved_inv:
+            print(f"   {p}")
+        print(f"\n✅ {len(saved_cn)} credit note(s) saved to {Path(args.credit_notes_out).resolve()}:")
+        for p in saved_cn:
+            print(f"   {p}")
+        if not saved_inv and not saved_cn:
+            print("\n⚠️  No files were downloaded.")
+            sys.exit(1)
+        return
+
+    # ── ID-range mode (bypasses date list fetch entirely) ────────────────────
+    if args.id_start is not None and args.id_end is not None:
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(asctime)s  %(levelname)-7s  %(message)s",
+            datefmt="%H:%M:%S",
+        )
+        cfg = EtimsConfig(
+            pin      = os.environ.get("KRA_PIN",      "P051621945B"),
+            username = os.environ.get("KRA_USERNAME",  "P051621945B"),
+            password = os.environ.get("KRA_PASSWORD",  "Nairobi@2025"),
+        )
+        saved = download_by_receipt_range(
+            cfg      = cfg,
+            start_no = args.id_start,
+            end_no   = args.id_end,
+            step     = args.id_step,
+            out_dir  = Path(args.out),
+        )
+        if saved:
+            print(f"\n✅ {len(saved)} file(s) saved:")
+            for p in saved:
+                print(f"   {p}")
+        else:
+            print("\n⚠️  No files were downloaded.")
+            sys.exit(1)
+        return
 
     logging.basicConfig(
         level=logging.INFO,
